@@ -1,15 +1,18 @@
 import Link from "next/link";
-import { CalendarDays, Download, MessageSquareText, PartyPopper, RotateCcw, Search, Users } from "lucide-react";
+import { CalendarDays, Download, Images, MessageSquareText, PartyPopper, RotateCcw, Search, Users } from "lucide-react";
 import { ConfirmSubmitButton } from "./confirm-submit-button";
 import {
+  deleteWeddingPhoto,
   deleteWeddingRsvp,
   setWeddingGuestbookVisibility,
+  setWeddingPhotoVisibility,
   updateWeddingRsvp,
 } from "../lib/wedding-actions";
 
 type WeddingOverview = {
   pagination: {
     guestbook: PaginationState;
+    photo: PaginationState;
     rsvp: PaginationState;
   };
   summary: {
@@ -24,6 +27,9 @@ type WeddingOverview = {
     visibleGuestbookCount: number;
     hiddenGuestbookCount: number;
     totalGuestbookCount: number;
+    visiblePhotoCount: number;
+    hiddenPhotoCount: number;
+    totalPhotoCount: number;
   };
   rsvps: Array<{
     id: string;
@@ -44,6 +50,15 @@ type WeddingOverview = {
     createdAt: string;
     updatedAt: string;
   }>;
+  photos: Array<{
+    id: string;
+    uploaderName: string;
+    publicUrl: string;
+    isVisible: boolean;
+    byteSize: number;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 };
 
 type PaginationState = {
@@ -58,6 +73,7 @@ type WeddingAdminFilters = {
   attendance?: string;
   error?: string;
   guestbookPage?: string;
+  photoPage?: string;
   q?: string;
   rsvpPage?: string;
 };
@@ -90,7 +106,7 @@ function getPhoneDigits(value: string | null) {
 }
 
 function getLatestUpdatedAt(overview: WeddingOverview) {
-  const timestamps = [...overview.rsvps, ...overview.guestbookEntries]
+  const timestamps = [...overview.rsvps, ...overview.guestbookEntries, ...overview.photos]
     .map((item) => new Date(item.updatedAt).getTime())
     .filter(Number.isFinite);
 
@@ -153,6 +169,13 @@ export function WeddingAdminPage({
       icon: MessageSquareText,
       accent: "text-[#ea4335]",
     },
+    {
+      title: "Guest Photos",
+      value: summary.totalPhotoCount,
+      detail: `${summary.visiblePhotoCount} visible / ${summary.hiddenPhotoCount} hidden`,
+      icon: Images,
+      accent: "text-[#4285f4]",
+    },
   ] as const;
 
   return (
@@ -166,7 +189,7 @@ export function WeddingAdminPage({
         </p>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {stats.map((stat) => {
           const Icon = stat.icon;
 
@@ -402,17 +425,79 @@ export function WeddingAdminPage({
         </div>
         <PaginationControls filters={filters} pageKey="guestbookPage" pagination={overview.pagination.guestbook} />
       </section>
+
+      <section className="rounded-lg border border-border bg-card shadow-sm">
+        <div className="border-b border-border p-5">
+          <h2 className="font-display text-2xl font-bold tracking-tight">Guest Photos</h2>
+          <p className="mt-1 text-sm text-foreground/50">
+            {overview.pagination.photo.totalItems.toLocaleString("ko-KR")} photos · page {overview.pagination.photo.page.toLocaleString("ko-KR")} /{" "}
+            {overview.pagination.photo.totalPages.toLocaleString("ko-KR")}
+          </p>
+        </div>
+        <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
+          {overview.photos.length > 0 ? (
+            overview.photos.map((photo) => (
+              <article key={photo.id} className="overflow-hidden rounded-lg border border-border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo.publicUrl} alt={`${photo.uploaderName} photo`} className="aspect-square w-full object-cover" />
+                <div className="space-y-3 p-4">
+                  <div>
+                    <p className="font-semibold">{photo.uploaderName}</p>
+                    <p className="mt-1 text-xs text-foreground/45">{formatDate(photo.createdAt)}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${
+                        photo.isVisible ? "bg-[#34a853]/10 text-[#1f7a3f]" : "bg-muted text-foreground/45"
+                      }`}
+                    >
+                      {photo.isVisible ? "Visible" : "Hidden"}
+                    </span>
+                    <form action={setWeddingPhotoVisibility}>
+                      <input type="hidden" name="id" value={photo.id} />
+                      <input type="hidden" name="isVisible" value={photo.isVisible ? "false" : "true"} />
+                      <button
+                        type="submit"
+                        className="inline-flex rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-bold transition hover:bg-muted"
+                      >
+                        {photo.isVisible ? "Hide" : "Restore"}
+                      </button>
+                    </form>
+                    <form action={deleteWeddingPhoto}>
+                      <input type="hidden" name="id" value={photo.id} />
+                      <ConfirmSubmitButton
+                        className="inline-flex rounded-lg border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs font-bold text-destructive transition hover:bg-destructive/10"
+                        message={`${photo.uploaderName}님의 사진을 삭제할까요?`}
+                      >
+                        Delete
+                      </ConfirmSubmitButton>
+                    </form>
+                  </div>
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="col-span-full p-10 text-center text-sm text-foreground/45">아직 하객 사진이 없습니다.</p>
+          )}
+        </div>
+        <PaginationControls filters={filters} pageKey="photoPage" pagination={overview.pagination.photo} />
+      </section>
     </div>
   );
 }
 
-function getPaginationHref(filters: WeddingAdminFilters | undefined, pageKey: "guestbookPage" | "rsvpPage", page: number) {
+function getPaginationHref(
+  filters: WeddingAdminFilters | undefined,
+  pageKey: "guestbookPage" | "photoPage" | "rsvpPage",
+  page: number,
+) {
   const params = new URLSearchParams();
 
   if (filters?.q) params.set("q", filters.q);
   if (filters?.attendance) params.set("attendance", filters.attendance);
   if (filters?.afterParty) params.set("afterParty", filters.afterParty);
   if (filters?.guestbookPage && pageKey !== "guestbookPage") params.set("guestbookPage", filters.guestbookPage);
+  if (filters?.photoPage && pageKey !== "photoPage") params.set("photoPage", filters.photoPage);
   if (filters?.rsvpPage && pageKey !== "rsvpPage") params.set("rsvpPage", filters.rsvpPage);
 
   if (page > 1) {
@@ -430,7 +515,7 @@ function PaginationControls({
   pagination,
 }: {
   filters?: WeddingAdminFilters;
-  pageKey: "guestbookPage" | "rsvpPage";
+  pageKey: "guestbookPage" | "photoPage" | "rsvpPage";
   pagination: PaginationState;
 }) {
   const previousPage = Math.max(1, pagination.page - 1);

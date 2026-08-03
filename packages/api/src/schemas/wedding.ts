@@ -123,6 +123,51 @@ export const rsvpInputSchema = z
     }
   });
 
+export const photoListInputSchema = z
+  .object({
+    cursor: z.string().optional(),
+    limit: z.number().int().min(1).max(60).default(24),
+  })
+  .optional();
+
+export const photoCreateUploadInputSchema = z.object({
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"], {
+    error: "지원하지 않는 이미지 형식입니다.",
+  }),
+});
+
+export const photoCreateInputSchema = z.object({
+  uploaderName: nameSchema,
+  storagePath: z
+    .string()
+    .trim()
+    .min(1, { error: "업로드 경로를 확인해주세요." })
+    .max(255, { error: "업로드 경로를 확인해주세요." })
+    .regex(/^guest\/[0-9]{4}-[0-9]{2}-[0-9]{2}\/[a-zA-Z0-9-]+\.(jpg|jpeg|png|webp)$/i, {
+      error: "업로드 경로를 확인해주세요.",
+    }),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"], {
+    error: "지원하지 않는 이미지 형식입니다.",
+  }),
+  byteSize: z
+    .number({ error: "파일 크기를 확인해주세요." })
+    .int({ error: "파일 크기를 확인해주세요." })
+    .min(1, { error: "파일 크기를 확인해주세요." })
+    .max(12 * 1024 * 1024, { error: "파일이 너무 큽니다." }),
+  width: z.number().int().positive().max(10000).nullable().optional(),
+  height: z.number().int().positive().max(10000).nullable().optional(),
+  website: honeypotSchema,
+});
+
+export const photoEntrySchema = z.object({
+  id: z.string(),
+  uploaderName: z.string(),
+  publicUrl: z.string(),
+  width: z.number().nullable(),
+  height: z.number().nullable(),
+  createdAt: z.string(),
+});
+
 export type Attendance = z.infer<typeof attendanceSchema>;
 export type AfterPartyAttendance = z.infer<typeof afterPartyAttendanceSchema>;
 export type GuestbookEntry = z.infer<typeof guestbookEntrySchema>;
@@ -130,3 +175,7 @@ export type GuestbookCreateInput = z.input<typeof guestbookCreateInputSchema>;
 export type GuestbookDeleteInput = z.input<typeof guestbookDeleteInputSchema>;
 export type GuestbookListInput = z.input<typeof guestbookListInputSchema>;
 export type RsvpInput = z.input<typeof rsvpInputSchema>;
+export type PhotoListInput = z.input<typeof photoListInputSchema>;
+export type PhotoCreateUploadInput = z.input<typeof photoCreateUploadInputSchema>;
+export type PhotoCreateInput = z.input<typeof photoCreateInputSchema>;
+export type PhotoEntry = z.infer<typeof photoEntrySchema>;

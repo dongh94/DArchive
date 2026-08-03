@@ -20,6 +20,7 @@ export default async function AdminWeddingRoute({
     attendance?: string;
     error?: string;
     guestbookPage?: string;
+    photoPage?: string;
     q?: string;
     rsvpPage?: string;
   }>;
@@ -35,12 +36,13 @@ export default async function AdminWeddingRoute({
         : undefined,
     attendance: filters?.attendance === "YES" || filters?.attendance === "NO" ? filters.attendance : undefined,
     guestbookPage: parsePageParam(filters?.guestbookPage),
+    photoPage: parsePageParam(filters?.photoPage),
     q: filters?.q,
     rsvpPage: parsePageParam(filters?.rsvpPage),
   });
 
   return (
-    <AdminShell activeHref="/admin/wedding" title="Wedding" description="RSVP와 방명록 데이터를 운영 관점에서 확인합니다.">
+    <AdminShell activeHref="/admin/wedding" title="Wedding" description="RSVP, 방명록, 하객 사진을 운영 관점에서 확인합니다.">
       <WeddingAdminPage overview={overview} filters={filters} />
     </AdminShell>
   );

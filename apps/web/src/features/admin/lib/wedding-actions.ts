@@ -90,3 +90,37 @@ export async function setWeddingGuestbookVisibility(formData: FormData) {
 
   revalidatePath("/admin/wedding");
 }
+
+export async function setWeddingPhotoVisibility(formData: FormData) {
+  await requireAdmin();
+
+  const id = formData.get("id");
+  const isVisible = formData.get("isVisible");
+
+  if (typeof id !== "string" || id.length === 0) {
+    return;
+  }
+
+  const caller = await createServerCaller();
+  await caller.admin.weddingPhotoSetVisibility({
+    id,
+    isVisible: isVisible === "true",
+  });
+
+  revalidatePath("/admin/wedding");
+}
+
+export async function deleteWeddingPhoto(formData: FormData) {
+  await requireAdmin();
+
+  const id = formData.get("id");
+
+  if (typeof id !== "string" || id.length === 0) {
+    return;
+  }
+
+  const caller = await createServerCaller();
+  await caller.admin.weddingPhotoDelete({ id });
+
+  revalidatePath("/admin/wedding");
+}

@@ -48,3 +48,20 @@ model WeddingRsvp {
   @@index([attendance, createdAt])
   @@index([afterPartyAttendance, createdAt])
 }
+
+model WeddingPhoto {
+  id           String   @id @default(cuid())
+  uploaderName String   @db.VarChar(40)
+  storagePath  String   @unique @db.VarChar(255)
+  publicUrl    String   @db.VarChar(500)
+  mimeType     String   @db.VarChar(64)
+  byteSize     Int
+  width        Int?
+  height       Int?
+  isVisible    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isVisible, createdAt])
+  @@index([createdAt])
+}
