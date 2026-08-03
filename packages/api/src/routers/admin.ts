@@ -42,13 +42,15 @@ const adminWeddingRsvpInput = z
     phone: input.phone ? input.phone : null,
   }));
 
+const pageNumberSchema = z.coerce.number().int().min(1).catch(1).default(1);
+
 const weddingOverviewInput = z
   .object({
     afterParty: z.enum([AfterPartyAttendance.YES, AfterPartyAttendance.NO, AfterPartyAttendance.UNDECIDED]).optional(),
     attendance: z.enum([WeddingAttendance.YES, WeddingAttendance.NO]).optional(),
-    guestbookPage: z.coerce.number().int().min(1).default(1),
+    guestbookPage: pageNumberSchema,
     q: z.string().trim().max(80).optional(),
-    rsvpPage: z.coerce.number().int().min(1).default(1),
+    rsvpPage: pageNumberSchema,
   })
   .optional();
 
@@ -106,6 +108,17 @@ export const adminRouter = router({
     const guestbookPage = input?.guestbookPage ?? 1;
     const query = input?.q?.trim();
     const queryDigits = query ? normalizePhoneDigits(query) : "";
+    const phoneMatchedIds =
+      queryDigits.length > 0
+        ? (
+            await prisma.$queryRaw<{ id: string }[]>`
+              SELECT id
+              FROM "WeddingRsvp"
+              WHERE phone IS NOT NULL
+                AND regexp_replace(phone, '[^0-9]', '', 'g') LIKE ${`%${queryDigits}%`}
+            `
+          ).map((row) => row.id)
+        : [];
     const rsvpWhere = {
       ...(input?.attendance ? { attendance: input.attendance } : {}),
       ...(input?.afterParty ? { afterPartyAttendance: input.afterParty } : {}),
@@ -113,7 +126,7 @@ export const adminRouter = router({
         ? {
             OR: [
               { name: { contains: query, mode: "insensitive" as const } },
-              ...(queryDigits ? [{ phone: { contains: queryDigits } }] : []),
+              ...(phoneMatchedIds.length > 0 ? [{ id: { in: phoneMatchedIds } }] : []),
             ],
           }
         : {}),

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createServerCaller } from "./api";
 import { requireAdmin } from "./auth";
 
@@ -11,7 +12,8 @@ function getNullableNumber(formData: FormData, key: string) {
     return null;
   }
 
-  return Number(value);
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function getNullableString(formData: FormData, key: string) {
@@ -49,19 +51,23 @@ export async function updateWeddingRsvp(formData: FormData) {
   const attendance = formData.get("attendance");
 
   if (typeof id !== "string" || typeof name !== "string" || (attendance !== "YES" && attendance !== "NO")) {
-    return;
+    redirect("/admin/wedding?error=rsvp-update");
   }
 
-  const caller = await createServerCaller();
-  await caller.admin.weddingRsvpUpdate({
-    id,
-    name,
-    attendance,
-    guestCount: getNullableNumber(formData, "guestCount"),
-    afterPartyAttendance: getNullableAfterPartyAttendance(formData),
-    afterPartyGuestCount: getNullableNumber(formData, "afterPartyGuestCount"),
-    phone: getNullableString(formData, "phone"),
-  });
+  try {
+    const caller = await createServerCaller();
+    await caller.admin.weddingRsvpUpdate({
+      id,
+      name,
+      attendance,
+      guestCount: getNullableNumber(formData, "guestCount"),
+      afterPartyAttendance: getNullableAfterPartyAttendance(formData),
+      afterPartyGuestCount: getNullableNumber(formData, "afterPartyGuestCount"),
+      phone: getNullableString(formData, "phone"),
+    });
+  } catch {
+    redirect("/admin/wedding?error=rsvp-update");
+  }
 
   revalidatePath("/admin/wedding");
 }

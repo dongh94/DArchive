@@ -3,12 +3,22 @@ import { WeddingAdminPage } from "@/features/admin/components/wedding-admin-page
 import { createServerCaller } from "@/features/admin/lib/api";
 import { requireAdmin } from "@/features/admin/lib/auth";
 
+function parsePageParam(value: string | undefined) {
+  if (!value) {
+    return 1;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+}
+
 export default async function AdminWeddingRoute({
   searchParams,
 }: {
   searchParams?: Promise<{
     afterParty?: string;
     attendance?: string;
+    error?: string;
     guestbookPage?: string;
     q?: string;
     rsvpPage?: string;
@@ -24,9 +34,9 @@ export default async function AdminWeddingRoute({
         ? filters.afterParty
         : undefined,
     attendance: filters?.attendance === "YES" || filters?.attendance === "NO" ? filters.attendance : undefined,
-    guestbookPage: filters?.guestbookPage,
+    guestbookPage: parsePageParam(filters?.guestbookPage),
     q: filters?.q,
-    rsvpPage: filters?.rsvpPage,
+    rsvpPage: parsePageParam(filters?.rsvpPage),
   });
 
   return (

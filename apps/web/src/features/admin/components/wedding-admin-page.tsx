@@ -56,6 +56,7 @@ type PaginationState = {
 type WeddingAdminFilters = {
   afterParty?: string;
   attendance?: string;
+  error?: string;
   guestbookPage?: string;
   q?: string;
   rsvpPage?: string;
@@ -156,6 +157,15 @@ export function WeddingAdminPage({
 
   return (
     <div className="grid gap-8">
+      {filters?.error === "rsvp-update" ? (
+        <p className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
+          <span>RSVP를 저장하지 못했습니다. 입력값을 확인한 뒤 다시 시도해주세요.</span>
+          <Link href="/admin/wedding" className="underline underline-offset-2">
+            닫기
+          </Link>
+        </p>
+      ) : null}
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
