@@ -25,6 +25,7 @@ export const weddingContent = {
   couple: {
     groom: {
       role: "Groom",
+      roleKo: "신랑",
       name: "김동희",
       facts: [
         { label: "담당", value: "길찾기와 계획 세우기" },
@@ -37,6 +38,7 @@ export const weddingContent = {
     },
     bride: {
       role: "Bride",
+      roleKo: "신부",
       name: "변지연",
       facts: [
         { label: "담당", value: "분위기 살리기" },
@@ -59,7 +61,10 @@ export const weddingContent = {
     calendarEnd: "20260912T184000",
   },
   location: {
-    venue: "MJ Convention",
+    venue: "MJ 컨벤션 5층 그랜드볼룸",
+    heroVenue: "MJ CONVENTION 5F GRAND BALLROOM",
+    venueName: "MJ Convention",
+    venueHall: "5층 그랜드볼룸",
     address: "경기도 부천시 소사구 소사본동 65-7(경인로 386)",
     phone: "032-347-5500",
     mapImageUrl: "https://picsum.photos/seed/map/600/600?grayscale",

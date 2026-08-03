@@ -263,25 +263,36 @@ export function RsvpDialog({ onClose, onSubmitted }: RsvpDialogProps) {
                 연락처
                 {afterPartyAttendance === "yes" ? " (필수)" : " (선택)"}
               </span>
-              <input
-                type="tel"
-                {...form.register("phone")}
-                maxLength={20}
-                inputMode="tel"
-                aria-invalid={isPhoneInvalid}
-                aria-describedby={errors.phone ? "rsvp-phone-error" : undefined}
-                className={cn(
-                  "w-full rounded-md border bg-brand-beige/30 px-3.5 py-2.5 text-sm focus:outline-none",
-                  isPhoneInvalid
-                    ? "border-brand-ink/60 focus:border-brand-ink"
-                    : "border-brand-gold/20 focus:border-brand-gold",
+              <Controller
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <input
+                    type="tel"
+                    value={field.value ?? ""}
+                    onChange={(event) => field.onChange(event.target.value.replace(/\D/g, "").slice(0, 11))}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                    maxLength={11}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    aria-invalid={isPhoneInvalid}
+                    aria-describedby={errors.phone ? "rsvp-phone-error" : undefined}
+                    className={cn(
+                      "w-full rounded-md border bg-brand-beige/30 px-3.5 py-2.5 text-sm focus:outline-none",
+                      isPhoneInvalid
+                        ? "border-brand-ink/60 focus:border-brand-ink"
+                        : "border-brand-gold/20 focus:border-brand-gold",
+                    )}
+                    placeholder={
+                      afterPartyAttendance === "yes"
+                        ? "01012345678"
+                        : "연락처 선택 입력"
+                    }
+                    autoComplete="tel"
+                  />
                 )}
-                placeholder={
-                  afterPartyAttendance === "yes"
-                    ? "뒤풀이 안내를 받을 연락처"
-                    : "연락처 선택 입력"
-                }
-                autoComplete="tel"
               />
               <FieldError id="rsvp-phone-error" message={errors.phone?.message} />
             </label>

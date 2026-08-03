@@ -26,6 +26,15 @@ export type ProjectGroup = {
   projects: ProjectItem[];
 };
 
+export type PlannedProject = {
+  title: string;
+  category: string;
+  description: string;
+  href: string;
+  status: string;
+  tags: string[];
+};
+
 type ContactLink = {
   label: string;
   href: string;
@@ -47,6 +56,33 @@ export const projectsHero = {
     location: "서울시 영등포구",
   },
 } as const;
+
+export const plannedProjects: PlannedProject[] = [
+  {
+    title: "Stock Lab",
+    category: "Investment",
+    description: "증권 API를 활용해 관심 종목, 포트폴리오, 투자 기록을 실험하는 주식 투자 프로젝트입니다.",
+    href: "/projects/stock",
+    status: "개발 예정",
+    tags: ["Stock API", "Portfolio", "Analytics"],
+  },
+  {
+    title: "DevLogs",
+    category: "Writing",
+    description: "Notion 또는 블로그 형태로 개발 기록, 회고, 아키텍처 실험을 정리하는 기록형 프로젝트입니다.",
+    href: "/projects/devlogs",
+    status: "개발 예정",
+    tags: ["Notion", "Blog", "Knowledge Base"],
+  },
+  {
+    title: "Coming Soon",
+    category: "App Lab",
+    description: "새로운 아이디어를 검증하고 작은 앱으로 만들어볼 예정인 실험 공간입니다.",
+    href: "/projects/coming-soon",
+    status: "개발 예정",
+    tags: ["Prototype", "Experiment", "TBD"],
+  },
+];
 
 export const projectSkills = ["React", "TypeScript", "Next.js", "Vite", "FSD", "React Query", "Vue", "Web Audio API"];
 

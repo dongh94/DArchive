@@ -19,7 +19,7 @@ const COUNTDOWN_UNITS = [
 }>;
 
 export function CalendarSection() {
-  const { couple, event } = weddingContent;
+  const { couple, event, location } = weddingContent;
   const [countdown, setCountdown] = useState<WeddingCountdown | null>(null);
   const weddingDate = new Date(event.dateTime);
   const weddingDay = weddingDate.getDate();
@@ -63,6 +63,7 @@ export function CalendarSection() {
         <p className="mt-2 inline-block bg-brand-gold/15 px-2 py-1 text-sm text-brand-ink">
           {event.dayTimeLabel}
         </p>
+        <p className="mt-3 text-sm text-brand-ink">{location.venue}</p>
       </div>
 
       <div className="mx-auto max-w-xs">

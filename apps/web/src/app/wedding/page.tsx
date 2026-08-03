@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { WeddingInvitation } from "@/features/wedding/wedding-invitation";
 
 const title = "Donghee & Jiyeon Wedding";
-const description = "2026. 09. 12 SAT PM 4:40, MJ Convention에서 동희와 지연의 결혼식에 초대합니다.";
+const description = "2026. 09. 12 SAT PM 4:40, MJ 컨벤션 5층 그랜드볼룸에서 동희와 지연의 결혼식에 초대합니다.";
 const imageUrl = "/images/wedding/gallery/full/gallery-11-b0233001d0.webp";
 
 export const metadata: Metadata = {

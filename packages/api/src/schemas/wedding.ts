@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const normalizeText = (value: string) => value.trim().replace(/\s+/g, " ");
+const normalizePhoneDigits = (value: string) => value.replace(/\D/g, "");
 
 const nameSchema = z
   .string()
@@ -24,11 +25,11 @@ const guestbookMessageSchema = z
 
 const optionalPhoneSchema = z
   .union([z.string(), z.null(), z.undefined()])
-  .transform((value) => (typeof value === "string" ? value.trim() : ""))
-  .pipe(z.string().max(20, { error: "연락처는 20자 이내로 입력해주세요." }))
+  .transform((value) => (typeof value === "string" ? normalizePhoneDigits(value) : ""))
+  .pipe(z.string().max(11, { error: "연락처는 숫자 11자 이내로 입력해주세요." }))
   .refine(
-    (value) => !value || /^(?:\+82[- ]?|0)\d{1,2}[- ]?\d{3,4}[- ]?\d{4}$/.test(value),
-    { error: "연락처 형식을 확인해주세요. 예: 010-1234-5678" },
+    (value) => !value || /^0\d{8,10}$/.test(value),
+    { error: "연락처는 숫자만 입력해주세요. 예: 01012345678" },
   )
   .transform((value) => (value ? value : null));
 

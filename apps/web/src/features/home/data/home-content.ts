@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Briefcase, Code2, Globe, Heart } from "lucide-react";
+import { Briefcase, Globe, Heart } from "lucide-react";
 
 export type HomeNavigationItem = {
   title: string;
@@ -67,18 +67,8 @@ export const archiveNavigation: HomeNavigationItem[] = [
     href: "/experience",
     icon: Briefcase,
     accent: "yellow",
-    size: "standard",
+    size: "tall",
     tags: ["Career"],
-  },
-  {
-    title: "DevLogs",
-    description: "개발 과정에서 배운 것과 경험한 것들은 추후 정리해 공개할 예정입니다.",
-    href: "#archive",
-    icon: Code2,
-    accent: "blue",
-    size: "standard",
-    tags: ["Coming", "Soon"],
-    status: "추후 진행 예정",
   },
 ];
 
@@ -103,20 +93,12 @@ export const latestUpdates: HomeUpdate[] = [
     date: "2026.09.12",
     href: "/wedding",
   },
-  {
-    category: "DevLogs",
-    title: "DevLogs Coming Soon",
-    description: "개발 기록은 아카이브 구조를 정리한 뒤 순차적으로 추가할 예정입니다.",
-    date: "Coming soon",
-    href: "#archive",
-  },
 ];
 
 export const homeNavItems = [
   { title: "Wedding", href: "/wedding" },
   { title: "Projects", href: "/projects" },
   { title: "Experience", href: "/experience" },
-  { title: "DevLogs", href: "#archive" },
 ] as const;
 
 export const footerLinks = [

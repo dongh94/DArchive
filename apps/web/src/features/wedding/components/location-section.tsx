@@ -42,7 +42,14 @@ export function LocationSection() {
     <section id="location" className="px-6 py-20">
       <SectionHeader
         eyebrow="Location"
-        title={location.venue}
+        title={
+          <>
+            <span className="block">{location.venueName}</span>
+            <span className="mt-1.5 block font-sans text-sm font-normal tracking-normal text-brand-muted">
+              {location.venueHall}
+            </span>
+          </>
+        }
         description={
           <>
             <span className="block">{location.address}</span>
@@ -77,7 +84,7 @@ export function LocationSection() {
             target="_blank"
             rel="noreferrer"
             className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-brand-gold/10 transition-transform hover:scale-105"
-            aria-label="네이버 지도에서 MJ Convention 보기"
+            aria-label="네이버 지도에서 MJ 컨벤션 보기"
           >
             <Image src="/images/naver-map-icon.png" alt="" width={40} height={40} className="h-10 w-10 object-contain" />
           </a>
@@ -86,7 +93,7 @@ export function LocationSection() {
             target="_blank"
             rel="noreferrer"
             className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[#FFE500] shadow-sm ring-1 ring-brand-gold/10 transition-transform hover:scale-105"
-            aria-label="카카오맵에서 MJ Convention 보기"
+            aria-label="카카오맵에서 MJ 컨벤션 보기"
           >
             <Image src="/images/kakao-map-icon.png" alt="" width={46} height={46} className="h-11 w-11 object-contain" />
           </a>

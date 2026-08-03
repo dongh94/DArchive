@@ -3,7 +3,7 @@ import { ProjectsPage } from "@/features/projects/projects-page";
 
 export const metadata: Metadata = {
   title: "Projects | Donghee Archive",
-  description: "프론트엔드 개발자 김동희의 프로젝트 중심 포트폴리오",
+  description: "앞으로 개발할 앱과 실험 프로젝트의 허브",
 };
 
 export default function Page() {

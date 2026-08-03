@@ -93,7 +93,7 @@ export function HeroSection() {
           imageAlt={hero.imageAlt}
           imageUrl={heroImage?.src}
           isIntroVisible={isIntroVisible}
-          venue={location.venue}
+          venue={location.heroVenue}
         />
       </motion.div>
 
