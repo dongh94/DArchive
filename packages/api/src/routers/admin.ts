@@ -1,11 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { AfterPartyAttendance, getPrisma, WeddingAttendance } from "@darchive/db";
+import { deleteWeddingPhotoObject } from "../lib/supabase-storage";
 import { publicProcedure, router } from "../trpc";
 
 const normalizePhoneDigits = (value: string) => value.replace(/\D/g, "");
 const ADMIN_RSVP_PAGE_SIZE = 10;
 const ADMIN_GUESTBOOK_PAGE_SIZE = 8;
+const ADMIN_PHOTO_PAGE_SIZE = 12;
 
 const adminProcedure = publicProcedure.use(({ ctx, next }) => {
   if (!ctx.isAdmin) {
@@ -49,6 +51,7 @@ const weddingOverviewInput = z
     afterParty: z.enum([AfterPartyAttendance.YES, AfterPartyAttendance.NO, AfterPartyAttendance.UNDECIDED]).optional(),
     attendance: z.enum([WeddingAttendance.YES, WeddingAttendance.NO]).optional(),
     guestbookPage: pageNumberSchema,
+    photoPage: pageNumberSchema,
     q: z.string().trim().max(80).optional(),
     rsvpPage: pageNumberSchema,
   })
@@ -102,10 +105,54 @@ export const adminRouter = router({
       return entry;
     }),
 
+  weddingPhotoSetVisibility: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        isVisible: z.boolean(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const photo = await getPrisma().weddingPhoto.update({
+        where: { id: input.id },
+        data: { isVisible: input.isVisible },
+        select: { id: true, isVisible: true },
+      });
+
+      return photo;
+    }),
+
+  weddingPhotoDelete: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const photo = await getPrisma().weddingPhoto.findUnique({
+        where: { id: input.id },
+        select: { id: true, storagePath: true },
+      });
+
+      if (!photo) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Photo not found" });
+      }
+
+      try {
+        await deleteWeddingPhotoObject(photo.storagePath);
+      } catch {
+        // Continue deleting the DB row even if the object is already gone.
+      }
+
+      await getPrisma().weddingPhoto.delete({
+        where: { id: photo.id },
+        select: { id: true },
+      });
+
+      return { ok: true as const };
+    }),
+
   weddingOverview: adminProcedure.input(weddingOverviewInput).query(async ({ input }) => {
     const prisma = getPrisma();
     const rsvpPage = input?.rsvpPage ?? 1;
     const guestbookPage = input?.guestbookPage ?? 1;
+    const photoPage = input?.photoPage ?? 1;
     const query = input?.q?.trim();
     const queryDigits = query ? normalizePhoneDigits(query) : "";
     const phoneMatchedIds =
@@ -136,6 +183,7 @@ export const adminRouter = router({
       rsvps,
       filteredRsvpCount,
       guestbookEntries,
+      photos,
       totalRsvps,
       attendingRsvps,
       declinedRsvps,
@@ -147,6 +195,9 @@ export const adminRouter = router({
       visibleGuestbookCount,
       hiddenGuestbookCount,
       totalGuestbookCount,
+      visiblePhotoCount,
+      hiddenPhotoCount,
+      totalPhotoCount,
     ] = await Promise.all([
       prisma.weddingRsvp.findMany({
         where: rsvpWhere,
@@ -179,6 +230,20 @@ export const adminRouter = router({
           updatedAt: true,
         },
       }),
+      prisma.weddingPhoto.findMany({
+        orderBy: { createdAt: "desc" },
+        skip: (photoPage - 1) * ADMIN_PHOTO_PAGE_SIZE,
+        take: ADMIN_PHOTO_PAGE_SIZE,
+        select: {
+          id: true,
+          uploaderName: true,
+          publicUrl: true,
+          isVisible: true,
+          byteSize: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
       prisma.weddingRsvp.count(),
       prisma.weddingRsvp.count({ where: { attendance: WeddingAttendance.YES } }),
       prisma.weddingRsvp.count({ where: { attendance: WeddingAttendance.NO } }),
@@ -196,6 +261,9 @@ export const adminRouter = router({
       prisma.weddingGuestbookEntry.count({ where: { isVisible: true } }),
       prisma.weddingGuestbookEntry.count({ where: { isVisible: false } }),
       prisma.weddingGuestbookEntry.count(),
+      prisma.weddingPhoto.count({ where: { isVisible: true } }),
+      prisma.weddingPhoto.count({ where: { isVisible: false } }),
+      prisma.weddingPhoto.count(),
     ]);
 
     return {
@@ -205,6 +273,12 @@ export const adminRouter = router({
           pageSize: ADMIN_GUESTBOOK_PAGE_SIZE,
           totalItems: totalGuestbookCount,
           totalPages: Math.max(1, Math.ceil(totalGuestbookCount / ADMIN_GUESTBOOK_PAGE_SIZE)),
+        },
+        photo: {
+          page: photoPage,
+          pageSize: ADMIN_PHOTO_PAGE_SIZE,
+          totalItems: totalPhotoCount,
+          totalPages: Math.max(1, Math.ceil(totalPhotoCount / ADMIN_PHOTO_PAGE_SIZE)),
         },
         rsvp: {
           page: rsvpPage,
@@ -225,6 +299,9 @@ export const adminRouter = router({
         visibleGuestbookCount,
         hiddenGuestbookCount,
         totalGuestbookCount,
+        visiblePhotoCount,
+        hiddenPhotoCount,
+        totalPhotoCount,
       },
       rsvps: rsvps.map((rsvp) => ({
         ...rsvp,
@@ -235,6 +312,11 @@ export const adminRouter = router({
         ...entry,
         createdAt: entry.createdAt.toISOString(),
         updatedAt: entry.updatedAt.toISOString(),
+      })),
+      photos: photos.map((photo) => ({
+        ...photo,
+        createdAt: photo.createdAt.toISOString(),
+        updatedAt: photo.updatedAt.toISOString(),
       })),
     };
   }),

@@ -7,9 +7,16 @@ import {
 import { publicProcedure, router } from "../trpc";
 import { isRateLimited } from "../lib/rate-limit";
 import {
+  createWeddingPhotoUploadUrl,
+  getWeddingPhotoPublicUrl,
+} from "../lib/supabase-storage";
+import {
   guestbookCreateInputSchema,
   guestbookDeleteInputSchema,
   guestbookListInputSchema,
+  photoCreateInputSchema,
+  photoCreateUploadInputSchema,
+  photoListInputSchema,
   rsvpInputSchema,
 } from "../schemas/wedding";
 
@@ -166,4 +173,103 @@ export const weddingRouter = router({
 
       return { ok: true as const };
     }),
+
+  photoList: publicProcedure.input(photoListInputSchema).query(async ({ input }) => {
+    const limit = input?.limit ?? 24;
+    const rows = await getPrisma().weddingPhoto.findMany({
+      where: { isVisible: true },
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        uploaderName: true,
+        publicUrl: true,
+        width: true,
+        height: true,
+        createdAt: true,
+      },
+    });
+
+    const hasMore = rows.length > limit;
+    const items = (hasMore ? rows.slice(0, limit) : rows).map((photo) => ({
+      ...photo,
+      createdAt: photo.createdAt.toISOString(),
+    }));
+
+    return {
+      items,
+      nextCursor: hasMore ? items[items.length - 1]?.id ?? null : null,
+    };
+  }),
+
+  photoCount: publicProcedure.query(() =>
+    getPrisma().weddingPhoto.count({ where: { isVisible: true } }),
+  ),
+
+  photoCreateUpload: publicProcedure
+    .input(photoCreateUploadInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (isRateLimited(`photo-upload-url:${ctx.ip}`, 30, 60_000)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "잠시 후 다시 시도해주세요.",
+        });
+      }
+
+      try {
+        return await createWeddingPhotoUploadUrl(input.mimeType);
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "업로드 준비에 실패했습니다.",
+        });
+      }
+    }),
+
+  photoCreate: publicProcedure.input(photoCreateInputSchema).mutation(async ({ ctx, input }) => {
+    if (input.website) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "잘못된 요청입니다." });
+    }
+
+    if (isRateLimited(`photo-create:${ctx.ip}`, 40, 60_000)) {
+      throw new TRPCError({
+        code: "TOO_MANY_REQUESTS",
+        message: "잠시 후 다시 시도해주세요.",
+      });
+    }
+
+    try {
+      const photo = await getPrisma().weddingPhoto.create({
+        data: {
+          uploaderName: input.uploaderName,
+          storagePath: input.storagePath,
+          publicUrl: getWeddingPhotoPublicUrl(input.storagePath),
+          mimeType: input.mimeType,
+          byteSize: input.byteSize,
+          width: input.width ?? null,
+          height: input.height ?? null,
+        },
+        select: {
+          id: true,
+          uploaderName: true,
+          publicUrl: true,
+          width: true,
+          height: true,
+          createdAt: true,
+        },
+      });
+
+      return { ...photo, createdAt: photo.createdAt.toISOString() };
+    } catch (error) {
+      if (isPrismaKnownError(error, PRISMA_UNIQUE_VIOLATION)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "이미 등록된 사진입니다.",
+        });
+      }
+
+      throw error;
+    }
+  }),
 });
