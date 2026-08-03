@@ -21,9 +21,12 @@ function ProfileCard({ profile, imageSide }: { profile: CoupleProfile; imageSide
 
   return (
     <div className="space-y-4">
-      <h4 className="text-center text-sm font-medium uppercase tracking-[0.4em] text-brand-gold">
-        {profile.role}
-      </h4>
+      <div className="text-center">
+        <h4 className="text-sm font-medium uppercase tracking-[0.4em] text-brand-gold">
+          {profile.role}
+        </h4>
+        <p className="mt-1.5 text-sm text-brand-muted">{profile.roleKo}</p>
+      </div>
 
       <div className={cn("flex items-start gap-5", isImageRight && "flex-row-reverse")}>
         <motion.div
