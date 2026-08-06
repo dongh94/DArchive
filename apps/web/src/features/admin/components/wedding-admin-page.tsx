@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarDays, Download, Images, MessageSquareText, PartyPopper, RotateCcw, Search, Users } from "lucide-react";
 import { ConfirmSubmitButton } from "./confirm-submit-button";
 import {
+  deleteWeddingGuestbook,
   deleteWeddingPhoto,
   deleteWeddingRsvp,
   setWeddingGuestbookVisibility,
@@ -416,6 +417,15 @@ export function WeddingAdminPage({
                     >
                       {entry.isVisible ? "Hide" : "Restore"}
                     </button>
+                  </form>
+                  <form action={deleteWeddingGuestbook}>
+                    <input type="hidden" name="id" value={entry.id} />
+                    <ConfirmSubmitButton
+                      className="inline-flex rounded-lg border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs font-bold text-destructive transition hover:bg-destructive/10"
+                      message={`${entry.name}님의 방명록을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`}
+                    >
+                      Delete
+                    </ConfirmSubmitButton>
                   </form>
                 </div>
               </article>

@@ -106,6 +106,17 @@ export const adminRouter = router({
       return entry;
     }),
 
+  weddingGuestbookDelete: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await getPrisma().weddingGuestbookEntry.delete({
+        where: { id: input.id },
+        select: { id: true },
+      });
+
+      return { ok: true as const };
+    }),
+
   weddingPhotoSetVisibility: adminProcedure
     .input(
       z.object({

@@ -91,6 +91,21 @@ export async function setWeddingGuestbookVisibility(formData: FormData) {
   revalidatePath("/admin/wedding");
 }
 
+export async function deleteWeddingGuestbook(formData: FormData) {
+  await requireAdmin();
+
+  const id = formData.get("id");
+
+  if (typeof id !== "string" || id.length === 0) {
+    return;
+  }
+
+  const caller = await createServerCaller();
+  await caller.admin.weddingGuestbookDelete({ id });
+
+  revalidatePath("/admin/wedding");
+}
+
 export async function setWeddingPhotoVisibility(formData: FormData) {
   await requireAdmin();
 
