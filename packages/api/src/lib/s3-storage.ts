@@ -7,8 +7,9 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
 
-export const WEDDING_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
-export const WEDDING_VIDEO_UPLOAD_URL_EXPIRES_IN = 60 * 10;
+export const WEDDING_VIDEO_MAX_MB = 300;
+export const WEDDING_VIDEO_MAX_BYTES = WEDDING_VIDEO_MAX_MB * 1024 * 1024;
+export const WEDDING_VIDEO_UPLOAD_URL_EXPIRES_IN = 60 * 30;
 
 const ALLOWED_MIME_TYPES = new Set(["video/mp4", "video/quicktime"]);
 

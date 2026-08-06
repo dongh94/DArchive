@@ -2,6 +2,10 @@ import { z } from "zod";
 
 const normalizeText = (value: string) => value.trim().replace(/\s+/g, " ");
 const normalizePhoneDigits = (value: string) => value.replace(/\D/g, "");
+const WEDDING_VIDEO_MAX_MB = 300;
+const WEDDING_VIDEO_MAX_BYTES = WEDDING_VIDEO_MAX_MB * 1024 * 1024;
+const WEDDING_VIDEO_TOO_LARGE_MESSAGE =
+  "300MB가 넘는 영상이에요. 카카오톡으로 직접 보내주시면 감사하겠습니다.";
 
 const nameSchema = z
   .string()
@@ -185,7 +189,7 @@ export const videoCreateUploadInputSchema = z.object({
     .number({ error: "파일 크기를 확인해주세요." })
     .int({ error: "파일 크기를 확인해주세요." })
     .min(1, { error: "파일 크기를 확인해주세요." })
-    .max(50 * 1024 * 1024, { error: "영상은 50MB 이하로 올려주세요." }),
+    .max(WEDDING_VIDEO_MAX_BYTES, { error: WEDDING_VIDEO_TOO_LARGE_MESSAGE }),
 });
 
 export const videoCreateInputSchema = z.object({
@@ -205,7 +209,7 @@ export const videoCreateInputSchema = z.object({
     .number({ error: "파일 크기를 확인해주세요." })
     .int({ error: "파일 크기를 확인해주세요." })
     .min(1, { error: "파일 크기를 확인해주세요." })
-    .max(50 * 1024 * 1024, { error: "영상은 50MB 이하로 올려주세요." }),
+    .max(WEDDING_VIDEO_MAX_BYTES, { error: WEDDING_VIDEO_TOO_LARGE_MESSAGE }),
   width: z.number().int().positive().max(10000).nullable().optional(),
   height: z.number().int().positive().max(10000).nullable().optional(),
   website: honeypotSchema,
