@@ -74,6 +74,14 @@ export const guestbookDeleteInputSchema = z.object({
   name: nameSchema,
 });
 
+export const guestbookUpdateInputSchema = z.object({
+  id: z.string({ error: "수정할 메시지를 찾을 수 없습니다." }).min(1, { error: "수정할 메시지를 찾을 수 없습니다." }),
+  name: nameSchema,
+  nextName: nameSchema,
+  message: guestbookMessageSchema,
+  website: honeypotSchema,
+});
+
 export const rsvpInputSchema = z
   .object({
     name: nameSchema,
@@ -163,9 +171,55 @@ export const photoEntrySchema = z.object({
   id: z.string(),
   uploaderName: z.string(),
   publicUrl: z.string(),
+  mediaType: z.enum(["image", "video"]),
   width: z.number().nullable(),
   height: z.number().nullable(),
   createdAt: z.string(),
+});
+
+export const videoCreateUploadInputSchema = z.object({
+  mimeType: z.enum(["video/mp4", "video/quicktime"], {
+    error: "지원하지 않는 영상 형식입니다.",
+  }),
+  byteSize: z
+    .number({ error: "파일 크기를 확인해주세요." })
+    .int({ error: "파일 크기를 확인해주세요." })
+    .min(1, { error: "파일 크기를 확인해주세요." })
+    .max(50 * 1024 * 1024, { error: "영상은 50MB 이하로 올려주세요." }),
+});
+
+export const videoCreateInputSchema = z.object({
+  uploaderName: nameSchema,
+  storagePath: z
+    .string()
+    .trim()
+    .min(1, { error: "업로드 경로를 확인해주세요." })
+    .max(255, { error: "업로드 경로를 확인해주세요." })
+    .regex(/^wedding\/videos\/[0-9]{4}-[0-9]{2}-[0-9]{2}\/[a-zA-Z0-9-]+\.(mp4|mov)$/i, {
+      error: "업로드 경로를 확인해주세요.",
+    }),
+  mimeType: z.enum(["video/mp4", "video/quicktime"], {
+    error: "지원하지 않는 영상 형식입니다.",
+  }),
+  byteSize: z
+    .number({ error: "파일 크기를 확인해주세요." })
+    .int({ error: "파일 크기를 확인해주세요." })
+    .min(1, { error: "파일 크기를 확인해주세요." })
+    .max(50 * 1024 * 1024, { error: "영상은 50MB 이하로 올려주세요." }),
+  width: z.number().int().positive().max(10000).nullable().optional(),
+  height: z.number().int().positive().max(10000).nullable().optional(),
+  website: honeypotSchema,
+});
+
+export const videoUploadDeleteInputSchema = z.object({
+  storagePath: z
+    .string()
+    .trim()
+    .min(1, { error: "업로드 경로를 확인해주세요." })
+    .max(255, { error: "업로드 경로를 확인해주세요." })
+    .regex(/^wedding\/videos\/[0-9]{4}-[0-9]{2}-[0-9]{2}\/[a-zA-Z0-9-]+\.(mp4|mov)$/i, {
+      error: "업로드 경로를 확인해주세요.",
+    }),
 });
 
 export type Attendance = z.infer<typeof attendanceSchema>;
@@ -173,9 +227,13 @@ export type AfterPartyAttendance = z.infer<typeof afterPartyAttendanceSchema>;
 export type GuestbookEntry = z.infer<typeof guestbookEntrySchema>;
 export type GuestbookCreateInput = z.input<typeof guestbookCreateInputSchema>;
 export type GuestbookDeleteInput = z.input<typeof guestbookDeleteInputSchema>;
+export type GuestbookUpdateInput = z.input<typeof guestbookUpdateInputSchema>;
 export type GuestbookListInput = z.input<typeof guestbookListInputSchema>;
 export type RsvpInput = z.input<typeof rsvpInputSchema>;
 export type PhotoListInput = z.input<typeof photoListInputSchema>;
 export type PhotoCreateUploadInput = z.input<typeof photoCreateUploadInputSchema>;
 export type PhotoCreateInput = z.input<typeof photoCreateInputSchema>;
 export type PhotoEntry = z.infer<typeof photoEntrySchema>;
+export type VideoCreateUploadInput = z.input<typeof videoCreateUploadInputSchema>;
+export type VideoCreateInput = z.input<typeof videoCreateInputSchema>;
+export type VideoUploadDeleteInput = z.input<typeof videoUploadDeleteInputSchema>;

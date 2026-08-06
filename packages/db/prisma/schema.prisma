@@ -55,6 +55,7 @@ model WeddingPhoto {
   storagePath  String   @unique @db.VarChar(255)
   publicUrl    String   @db.VarChar(500)
   mimeType     String   @db.VarChar(64)
+  mediaType    String   @default("image") @db.VarChar(16)
   byteSize     Int
   width        Int?
   height       Int?
@@ -64,4 +65,5 @@ model WeddingPhoto {
 
   @@index([isVisible, createdAt])
   @@index([createdAt])
+  @@index([mediaType, createdAt])
 }

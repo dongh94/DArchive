@@ -180,19 +180,24 @@ export const GuestbookSection = memo(function GuestbookSection({
         </AnimatePresence>
 
         {totalCount > 0 ? (
-          <button
-            type="button"
-            onClick={onOpenViewer}
-            onFocus={prefetchViewerEntries}
-            onPointerEnter={prefetchViewerEntries}
-            onPointerDown={prefetchViewerEntries}
-            onTouchStart={prefetchViewerEntries}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-brand-gold/30 bg-white px-8 py-3.5 text-sm font-medium text-brand-gold shadow-sm transition-all hover:bg-brand-beige active:scale-95"
-          >
-            <MessageCircle size={16} />
-            방명록 전체 보기
-            <span className="text-brand-muted">({totalCount})</span>
-          </button>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={onOpenViewer}
+              onFocus={prefetchViewerEntries}
+              onPointerEnter={prefetchViewerEntries}
+              onPointerDown={prefetchViewerEntries}
+              onTouchStart={prefetchViewerEntries}
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-brand-gold/30 bg-white px-8 py-3.5 text-sm font-medium text-brand-gold shadow-sm transition-all hover:bg-brand-beige active:scale-95"
+            >
+              <MessageCircle size={16} />
+              방명록 전체 보기
+              <span className="text-brand-muted">({totalCount})</span>
+            </button>
+            <p className="text-center text-[11px] leading-5 text-brand-muted">
+              방명록 수정은 전체 보기에서 가능합니다.
+            </p>
+          </div>
         ) : null}
       </div>
     </section>
