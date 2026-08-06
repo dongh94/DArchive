@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, Pencil, Search, X } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 import { trpc } from "@/shared/lib/trpc";
 import { useDebouncedValue } from "@/shared/lib/use-debounced-value";
@@ -17,10 +17,13 @@ type GuestbookViewerDialogProps = {
   onClose: () => void;
 };
 
-type DeleteTarget = {
+type EditTarget = {
   id: string;
-  name: string;
-  input: string;
+  originalName: string;
+  confirmNameInput: string;
+  nextName: string;
+  message: string;
+  isConfirmed: boolean;
 };
 
 export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
@@ -31,7 +34,7 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
   const debouncedSearch = useDebouncedValue(searchInput.trim(), SEARCH_DEBOUNCE_MS);
   const isTypingSearch = searchInput.trim() !== debouncedSearch;
   const trimmedSearch = searchInput.trim();
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   const listInput = useMemo(
     () => ({ limit: LIST_LIMIT, search: debouncedSearch || undefined }),
@@ -44,14 +47,10 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
     staleTime: 60_000,
   });
 
-  const deleteMutation = trpc.wedding.guestbookDelete.useMutation({
+  const updateMutation = trpc.wedding.guestbookUpdate.useMutation({
     onSuccess: () => {
-      setDeleteTarget(null);
+      setEditTarget(null);
       utils.wedding.guestbookList.invalidate();
-      utils.wedding.guestbookCount.setData(undefined, (current) =>
-        typeof current === "number" ? Math.max(0, current - 1) : current,
-      );
-      utils.wedding.guestbookCount.invalidate();
     },
   });
 
@@ -61,16 +60,37 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
     !isInitialLoading && (isTypingSearch || (listQuery.isFetching && !listQuery.isFetchingNextPage));
   const isSearchEmpty = !isInitialLoading && !isRefetchingSearch && entries.length === 0;
 
-  const handleRequestDelete = (id: string, name: string) => {
-    deleteMutation.reset();
-    setDeleteTarget((current) =>
-      current && current.id === id ? null : { id, name, input: "" },
+  const handleRequestEdit = (entry: { id: string; name: string; message: string }) => {
+    updateMutation.reset();
+    setEditTarget((current) =>
+      current && current.id === entry.id
+        ? null
+        : {
+            id: entry.id,
+            originalName: entry.name,
+            confirmNameInput: "",
+            nextName: entry.name,
+            message: entry.message,
+            isConfirmed: false,
+          },
     );
   };
 
-  const handleConfirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteMutation.mutate({ id: deleteTarget.id, name: deleteTarget.input.trim() });
+  const handleConfirmEditName = () => {
+    if (!editTarget || editTarget.confirmNameInput.trim() !== editTarget.originalName) return;
+    updateMutation.reset();
+    setEditTarget({ ...editTarget, isConfirmed: true });
+  };
+
+  const handleSubmitEdit = () => {
+    if (!editTarget) return;
+    updateMutation.mutate({
+      id: editTarget.id,
+      name: editTarget.confirmNameInput.trim(),
+      nextName: editTarget.nextName,
+      message: editTarget.message,
+      website: "",
+    });
   };
 
   return (
@@ -119,8 +139,8 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
               value={searchInput}
               onChange={(event) => {
                 setSearchInput(event.target.value);
-                if (deleteTarget) setDeleteTarget(null);
-                if (deleteMutation.error) deleteMutation.reset();
+                if (editTarget) setEditTarget(null);
+                if (updateMutation.error) updateMutation.reset();
               }}
               maxLength={80}
               placeholder="이름이나 메시지로 검색"
@@ -132,8 +152,8 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
                 type="button"
                 onClick={() => {
                   setSearchInput("");
-                  if (deleteTarget) setDeleteTarget(null);
-                  if (deleteMutation.error) deleteMutation.reset();
+                  if (editTarget) setEditTarget(null);
+                  if (updateMutation.error) updateMutation.reset();
                 }}
                 className="text-xs text-brand-muted hover:text-brand-ink"
                 aria-label="검색어 지우기"
@@ -160,31 +180,58 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
           ) : (
             <div className="space-y-3">
               {entries.map((entry) => {
-                const isTargeted = deleteTarget?.id === entry.id;
+                const isTargeted = editTarget?.id === entry.id;
                 return (
-                  <div key={entry.id}>
-                    <GuestbookEntryCard
-                      entry={entry}
-                      onRequestDelete={() => handleRequestDelete(entry.id, entry.name)}
-                      isDeleteHighlighted={isTargeted}
-                      footerSlot={
-                        isTargeted ? (
-                          <DeleteConfirmation
-                            target={deleteTarget}
-                            onCancel={() => setDeleteTarget(null)}
-                            onChangeInput={(value) =>
-                              setDeleteTarget((current) =>
-                                current && current.id === entry.id ? { ...current, input: value } : current,
-                              )
-                            }
-                            onConfirm={handleConfirmDelete}
-                            isSubmitting={deleteMutation.isPending}
-                            errorMessage={deleteMutation.error?.message ?? null}
-                          />
-                        ) : null
-                      }
-                    />
-                  </div>
+                  <GuestbookEntryCard
+                    key={entry.id}
+                    entry={entry}
+                    actionSlot={
+                      <button
+                        type="button"
+                        onClick={() => handleRequestEdit(entry)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-brand-gold transition-colors hover:bg-brand-beige hover:text-brand-ink"
+                        aria-label={`${entry.name}의 메시지 수정`}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    }
+                    footerSlot={
+                      isTargeted ? (
+                        <EditGuestbookEntryForm
+                          target={editTarget}
+                          onCancel={() => {
+                            setEditTarget(null);
+                            updateMutation.reset();
+                          }}
+                          onChangeConfirmName={(value) =>
+                            setEditTarget((current) =>
+                              current && current.id === entry.id
+                                ? { ...current, confirmNameInput: value }
+                                : current,
+                            )
+                          }
+                          onConfirmName={handleConfirmEditName}
+                          onChangeNextName={(value) =>
+                            setEditTarget((current) =>
+                              current && current.id === entry.id
+                                ? { ...current, nextName: value }
+                                : current,
+                            )
+                          }
+                          onChangeMessage={(value) =>
+                            setEditTarget((current) =>
+                              current && current.id === entry.id
+                                ? { ...current, message: value }
+                                : current,
+                            )
+                          }
+                          onSubmit={handleSubmitEdit}
+                          isSubmitting={updateMutation.isPending}
+                          errorMessage={updateMutation.error?.message ?? null}
+                        />
+                      ) : null
+                    }
+                  />
                 );
               })}
               {listQuery.hasNextPage ? (
@@ -208,90 +255,190 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
   );
 }
 
-type DeleteConfirmationProps = {
-  target: DeleteTarget;
-  onChangeInput: (value: string) => void;
+type EditGuestbookEntryFormProps = {
+  target: EditTarget;
+  onChangeConfirmName: (value: string) => void;
+  onConfirmName: () => void;
+  onChangeNextName: (value: string) => void;
+  onChangeMessage: (value: string) => void;
   onCancel: () => void;
-  onConfirm: () => void;
+  onSubmit: () => void;
   isSubmitting: boolean;
   errorMessage: string | null;
 };
 
-function DeleteConfirmation({
+function EditGuestbookEntryForm({
   target,
-  onChangeInput,
+  onChangeConfirmName,
+  onConfirmName,
+  onChangeNextName,
+  onChangeMessage,
   onCancel,
-  onConfirm,
+  onSubmit,
   isSubmitting,
   errorMessage,
-}: DeleteConfirmationProps) {
-  const trimmed = target.input.trim();
-  const isTooLong = trimmed.length > 16;
-  const isMatched = trimmed.length > 0 && trimmed === target.name;
-  const canSubmit = isMatched && !isTooLong && !isSubmitting;
+}: EditGuestbookEntryFormProps) {
+  const trimmedConfirmName = target.confirmNameInput.trim();
+  const trimmedNextName = target.nextName.trim().replace(/\s+/g, " ");
+  const trimmedMessage = target.message.trim().replace(/\s+/g, " ");
+  const isConfirmNameTooLong = trimmedConfirmName.length > 16;
+  const isConfirmNameMatched =
+    trimmedConfirmName.length > 0 && trimmedConfirmName === target.originalName;
   const isCompleteMismatch =
-    trimmed.length >= target.name.trim().length && !isMatched;
-  const validationMessage = isTooLong
+    trimmedConfirmName.length >= target.originalName.trim().length &&
+    !isConfirmNameMatched;
+  const nameValidationMessage = isConfirmNameTooLong
     ? "성함은 16자 이내로 입력해주세요."
     : isCompleteMismatch
       ? "작성자 성함과 일치하지 않습니다."
       : null;
+  const editNameValidationMessage =
+    trimmedNextName.length < 1
+      ? "성함을 입력해주세요."
+      : trimmedNextName.length > 16
+        ? "성함은 16자 이내로 입력해주세요."
+        : null;
+  const messageValidationMessage =
+    trimmedMessage.length < 2
+      ? "축하 메시지는 2자 이상 입력해주세요."
+      : trimmedMessage.length > 300
+        ? "축하 메시지는 300자 이내로 입력해주세요."
+        : null;
+  const canConfirmName = isConfirmNameMatched && !isConfirmNameTooLong;
+  const canSubmit =
+    target.isConfirmed &&
+    !editNameValidationMessage &&
+    !messageValidationMessage &&
+    !isSubmitting;
+
+  if (!target.isConfirmed) {
+    return (
+      <div className="space-y-2 rounded-md border border-brand-gold/15 bg-brand-beige/40 p-3">
+        <p className="text-[11px] leading-5 text-brand-muted">
+          수정하려면 작성자 성함을 다시 입력해주세요.
+        </p>
+        <input
+          type="text"
+          value={target.confirmNameInput}
+          onChange={(event) => onChangeConfirmName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || event.keyCode === 229) {
+              return;
+            }
+
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (canConfirmName) {
+                onConfirmName();
+              }
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onCancel();
+            }
+          }}
+          placeholder={target.originalName}
+          maxLength={16}
+          autoFocus
+          className="w-full rounded border border-brand-gold/20 bg-white px-3 py-2 text-sm placeholder:text-brand-muted/50 focus:border-brand-gold focus:outline-none"
+          aria-label="작성자 성함 확인"
+          aria-invalid={Boolean(nameValidationMessage)}
+          aria-describedby={nameValidationMessage ? "edit-name-error" : undefined}
+        />
+        {nameValidationMessage ? (
+          <p id="edit-name-error" role="alert" className="text-[11px] text-brand-ink/75">
+            {nameValidationMessage}
+          </p>
+        ) : null}
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-full px-3 py-1.5 text-xs text-brand-muted hover:text-brand-ink"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirmName}
+            disabled={!canConfirmName}
+            className={cn(
+              "rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+              canConfirmName
+                ? "bg-brand-ink text-white hover:bg-brand-ink/90"
+                : "bg-brand-beige text-brand-muted/50",
+            )}
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2 rounded-md border border-brand-gold/15 bg-brand-beige/40 p-3">
       <p className="text-[11px] leading-5 text-brand-muted">
-        삭제하시려면 작성자 이름을 다시 입력해주세요.
+        성함과 축하 메시지를 수정할 수 있어요.
       </p>
-      <input
-        type="text"
-        value={target.input}
-        onChange={(event) => onChangeInput(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && canSubmit) {
-            event.preventDefault();
-            onConfirm();
-          }
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onCancel();
-          }
-        }}
-        placeholder={target.name}
-        maxLength={16}
-        autoFocus
-        disabled={isSubmitting}
-        className="w-full rounded border border-brand-gold/20 bg-white px-3 py-2 text-sm placeholder:text-brand-muted/50 focus:border-brand-gold focus:outline-none"
-        aria-label="작성자 이름 확인"
-        aria-invalid={Boolean(validationMessage)}
-        aria-describedby={validationMessage ? "delete-name-error" : undefined}
-      />
-      {validationMessage ? (
-        <p id="delete-name-error" role="alert" className="text-[11px] text-brand-ink/75">
-          {validationMessage}
+      <label className="block space-y-1.5">
+        <span className="text-[11px] font-medium text-brand-muted">성함</span>
+        <input
+          type="text"
+          value={target.nextName}
+          onChange={(event) => onChangeNextName(event.target.value)}
+          maxLength={16}
+          autoFocus
+          disabled={isSubmitting}
+          className="w-full rounded border border-brand-gold/20 bg-white px-3 py-2 text-sm focus:border-brand-gold focus:outline-none disabled:opacity-60"
+          aria-label="성함 수정"
+          aria-invalid={Boolean(editNameValidationMessage)}
+          aria-describedby={editNameValidationMessage ? "edit-next-name-error" : undefined}
+        />
+      </label>
+      {editNameValidationMessage ? (
+        <p id="edit-next-name-error" role="alert" className="text-[11px] text-brand-ink/75">
+          {editNameValidationMessage}
         </p>
       ) : null}
-      <div className="flex items-center justify-end gap-2 pt-1">
+      <textarea
+        value={target.message}
+        onChange={(event) => onChangeMessage(event.target.value)}
+        maxLength={300}
+        rows={4}
+        disabled={isSubmitting}
+        className="w-full resize-none rounded border border-brand-gold/20 bg-white px-3 py-2 text-sm leading-6 focus:border-brand-gold focus:outline-none disabled:opacity-60"
+        aria-label="축하 메시지 수정"
+        aria-invalid={Boolean(messageValidationMessage)}
+        aria-describedby={messageValidationMessage ? "edit-message-error" : undefined}
+      />
+      {messageValidationMessage ? (
+        <p id="edit-message-error" role="alert" className="text-[11px] text-brand-ink/75">
+          {messageValidationMessage}
+        </p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-2 pt-1">
         <button
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="rounded-full px-3 py-1.5 text-xs text-brand-muted hover:text-brand-ink disabled:opacity-60"
+          className="rounded-full border border-brand-gold/20 bg-white px-3 py-2 text-xs text-brand-muted hover:text-brand-ink disabled:opacity-60"
         >
           취소
         </button>
         <button
           type="button"
-          onClick={onConfirm}
+          onClick={onSubmit}
           disabled={!canSubmit}
           className={cn(
-            "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors",
+            "flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium transition-colors",
             canSubmit
               ? "bg-brand-ink text-white hover:bg-brand-ink/90"
               : "bg-brand-beige text-brand-muted/50",
           )}
         >
           {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : null}
-          삭제
+          저장
         </button>
       </div>
       {errorMessage ? <p className="text-[11px] text-brand-ink/75">{errorMessage}</p> : null}

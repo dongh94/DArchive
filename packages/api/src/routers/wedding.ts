@@ -20,6 +20,7 @@ import {
   guestbookCreateInputSchema,
   guestbookDeleteInputSchema,
   guestbookListInputSchema,
+  guestbookUpdateInputSchema,
   photoCreateInputSchema,
   photoCreateUploadInputSchema,
   photoListInputSchema,
@@ -142,6 +143,59 @@ export const weddingRouter = router({
       });
 
       return { ok: true as const, id: existing.id };
+    }),
+
+  guestbookUpdate: publicProcedure
+    .input(guestbookUpdateInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (input.website) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "잘못된 요청입니다." });
+      }
+
+      if (isRateLimited(`guestbook-update:${ctx.ip}`, 10, 60_000)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "잠시 후 다시 시도해주세요.",
+        });
+      }
+
+      const existing = await getPrisma().weddingGuestbookEntry.findUnique({
+        where: { id: input.id },
+        select: { id: true, name: true },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "수정할 메시지를 찾을 수 없습니다.",
+        });
+      }
+
+      if (existing.name !== input.name) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "작성자 성함이 일치하지 않습니다.",
+        });
+      }
+
+      try {
+        const entry = await getPrisma().weddingGuestbookEntry.update({
+          where: { id: existing.id },
+          data: { name: input.nextName, message: input.message },
+          select: { id: true, name: true, message: true, createdAt: true },
+        });
+
+        return { ...entry, createdAt: entry.createdAt.toISOString() };
+      } catch (error) {
+        if (isPrismaKnownError(error, PRISMA_UNIQUE_VIOLATION)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "이미 같은 이름으로 남겨진 메시지가 있습니다.",
+          });
+        }
+
+        throw error;
+      }
     }),
 
   rsvpCreate: publicProcedure

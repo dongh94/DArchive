@@ -1,4 +1,5 @@
-import { Calendar, MessageSquare, Send } from "lucide-react";
+import Link from "next/link";
+import { Calendar, Camera, MessageSquare, Send } from "lucide-react";
 
 type ClosingSectionProps = {
   addToCalendar: () => void;
@@ -19,6 +20,13 @@ export function ClosingSection({ addToCalendar, onRsvp, onShare }: ClosingSectio
         </div>
 
         <div className="mt-8 flex flex-col gap-4">
+          <Link
+            href="/wedding/photos"
+            className="flex items-center justify-center gap-2 rounded-full border border-brand-gold/30 bg-brand-beige/50 px-8 py-4 text-sm font-medium text-brand-ink shadow-sm transition-all hover:border-brand-gold/45 hover:bg-brand-beige active:scale-95"
+          >
+            <Camera size={18} />
+            게스트 스냅 바로가기
+          </Link>
           <button
             type="button"
             onClick={onRsvp}

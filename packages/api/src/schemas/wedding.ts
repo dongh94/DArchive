@@ -74,6 +74,14 @@ export const guestbookDeleteInputSchema = z.object({
   name: nameSchema,
 });
 
+export const guestbookUpdateInputSchema = z.object({
+  id: z.string({ error: "수정할 메시지를 찾을 수 없습니다." }).min(1, { error: "수정할 메시지를 찾을 수 없습니다." }),
+  name: nameSchema,
+  nextName: nameSchema,
+  message: guestbookMessageSchema,
+  website: honeypotSchema,
+});
+
 export const rsvpInputSchema = z
   .object({
     name: nameSchema,
@@ -219,6 +227,7 @@ export type AfterPartyAttendance = z.infer<typeof afterPartyAttendanceSchema>;
 export type GuestbookEntry = z.infer<typeof guestbookEntrySchema>;
 export type GuestbookCreateInput = z.input<typeof guestbookCreateInputSchema>;
 export type GuestbookDeleteInput = z.input<typeof guestbookDeleteInputSchema>;
+export type GuestbookUpdateInput = z.input<typeof guestbookUpdateInputSchema>;
 export type GuestbookListInput = z.input<typeof guestbookListInputSchema>;
 export type RsvpInput = z.input<typeof rsvpInputSchema>;
 export type PhotoListInput = z.input<typeof photoListInputSchema>;
