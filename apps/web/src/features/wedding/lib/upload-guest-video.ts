@@ -38,7 +38,10 @@ type VideoUploadClient = {
   };
 };
 
-export const MAX_GUEST_VIDEO_BYTES = 50 * 1024 * 1024;
+export const MAX_GUEST_VIDEO_MB = 300;
+export const MAX_GUEST_VIDEO_BYTES = MAX_GUEST_VIDEO_MB * 1024 * 1024;
+export const GUEST_VIDEO_TOO_LARGE_MESSAGE =
+  "300MB가 넘는 영상이에요. 카카오톡으로 직접 보내주시면 감사하겠습니다.";
 
 export function resolveVideoMimeType(file: File): "video/mp4" | "video/quicktime" | null {
   if (file.type === "video/mp4" || file.type === "video/quicktime") {
@@ -62,7 +65,7 @@ export function validateGuestVideoFile(file: File) {
   }
 
   if (file.size > MAX_GUEST_VIDEO_BYTES) {
-    throw new Error("영상은 50MB 이하로 올려주세요.");
+    throw new Error(GUEST_VIDEO_TOO_LARGE_MESSAGE);
   }
 
   return mimeType;
