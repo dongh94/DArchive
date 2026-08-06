@@ -7,6 +7,12 @@ import {
 import { publicProcedure, router } from "../trpc";
 import { isRateLimited } from "../lib/rate-limit";
 import {
+  createWeddingVideoUploadUrl,
+  deleteWeddingVideoObject,
+  getWeddingVideoPublicUrl,
+  verifyWeddingVideoObject,
+} from "../lib/s3-storage";
+import {
   createWeddingPhotoUploadUrl,
   getWeddingPhotoPublicUrl,
 } from "../lib/supabase-storage";
@@ -18,6 +24,9 @@ import {
   photoCreateUploadInputSchema,
   photoListInputSchema,
   rsvpInputSchema,
+  videoCreateInputSchema,
+  videoCreateUploadInputSchema,
+  videoUploadDeleteInputSchema,
 } from "../schemas/wedding";
 
 const PRISMA_UNIQUE_VIOLATION = "P2002";
@@ -185,6 +194,7 @@ export const weddingRouter = router({
         id: true,
         uploaderName: true,
         publicUrl: true,
+        mediaType: true,
         width: true,
         height: true,
         createdAt: true,
@@ -194,6 +204,7 @@ export const weddingRouter = router({
     const hasMore = rows.length > limit;
     const items = (hasMore ? rows.slice(0, limit) : rows).map((photo) => ({
       ...photo,
+      mediaType: photo.mediaType === "video" ? ("video" as const) : ("image" as const),
       createdAt: photo.createdAt.toISOString(),
     }));
 
@@ -246,6 +257,7 @@ export const weddingRouter = router({
           storagePath: input.storagePath,
           publicUrl: getWeddingPhotoPublicUrl(input.storagePath),
           mimeType: input.mimeType,
+          mediaType: "image",
           byteSize: input.byteSize,
           width: input.width ?? null,
           height: input.height ?? null,
@@ -254,13 +266,18 @@ export const weddingRouter = router({
           id: true,
           uploaderName: true,
           publicUrl: true,
+          mediaType: true,
           width: true,
           height: true,
           createdAt: true,
         },
       });
 
-      return { ...photo, createdAt: photo.createdAt.toISOString() };
+      return {
+        ...photo,
+        mediaType: "image" as const,
+        createdAt: photo.createdAt.toISOString(),
+      };
     } catch (error) {
       if (isPrismaKnownError(error, PRISMA_UNIQUE_VIOLATION)) {
         throw new TRPCError({
@@ -272,4 +289,127 @@ export const weddingRouter = router({
       throw error;
     }
   }),
+
+  videoCreateUpload: publicProcedure
+    .input(videoCreateUploadInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (isRateLimited(`video-upload-url:${ctx.ip}`, 10, 60_000)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "잠시 후 다시 시도해주세요.",
+        });
+      }
+
+      try {
+        return await createWeddingVideoUploadUrl(input.mimeType, input.byteSize);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "업로드 준비에 실패했습니다.";
+        if (message === "Unsupported video type" || message === "Video file is too large") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "영상 파일을 확인해주세요." });
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "업로드 준비에 실패했습니다.",
+        });
+      }
+    }),
+
+  videoCreate: publicProcedure.input(videoCreateInputSchema).mutation(async ({ ctx, input }) => {
+    if (input.website) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "잘못된 요청입니다." });
+    }
+
+    if (isRateLimited(`video-create:${ctx.ip}`, 15, 60_000)) {
+      throw new TRPCError({
+        code: "TOO_MANY_REQUESTS",
+        message: "잠시 후 다시 시도해주세요.",
+      });
+    }
+
+    try {
+      await verifyWeddingVideoObject(input.storagePath, input.mimeType, input.byteSize);
+    } catch {
+      await deleteWeddingVideoObject(input.storagePath).catch(() => {
+        // Best-effort cleanup for invalid or incomplete uploads.
+      });
+
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "영상 업로드를 확인할 수 없습니다. 다시 시도해주세요.",
+      });
+    }
+
+    try {
+      const video = await getPrisma().weddingPhoto.create({
+        data: {
+          uploaderName: input.uploaderName,
+          storagePath: input.storagePath,
+          publicUrl: getWeddingVideoPublicUrl(input.storagePath),
+          mimeType: input.mimeType,
+          mediaType: "video",
+          byteSize: input.byteSize,
+          width: input.width ?? null,
+          height: input.height ?? null,
+        },
+        select: {
+          id: true,
+          uploaderName: true,
+          publicUrl: true,
+          mediaType: true,
+          width: true,
+          height: true,
+          createdAt: true,
+        },
+      });
+
+      return {
+        ...video,
+        mediaType: "video" as const,
+        createdAt: video.createdAt.toISOString(),
+      };
+    } catch (error) {
+      if (isPrismaKnownError(error, PRISMA_UNIQUE_VIOLATION)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "이미 등록된 영상입니다.",
+        });
+      }
+
+      await deleteWeddingVideoObject(input.storagePath).catch(() => {
+        // Best-effort cleanup if DB registration fails after S3 upload.
+      });
+
+      throw error;
+    }
+  }),
+
+  videoUploadDelete: publicProcedure
+    .input(videoUploadDeleteInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (isRateLimited(`video-upload-delete:${ctx.ip}`, 15, 60_000)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "잠시 후 다시 시도해주세요.",
+        });
+      }
+
+      const existing = await getPrisma().weddingPhoto.findUnique({
+        where: { storagePath: input.storagePath },
+        select: { id: true },
+      });
+
+      if (existing) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "이미 등록된 영상입니다.",
+        });
+      }
+
+      await deleteWeddingVideoObject(input.storagePath).catch(() => {
+        // Deleting an already-missing temporary object is harmless.
+      });
+
+      return { ok: true as const };
+    }),
 });

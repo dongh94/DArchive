@@ -8,6 +8,8 @@
     "./schemas": "./src/schemas/wedding.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1102.0",
+    "@aws-sdk/s3-request-presigner": "^3.1102.0",
     "@darchive/db": "workspace:*",
     "@supabase/supabase-js": "^2.112.0",
     "@trpc/server": "^11.17.0",

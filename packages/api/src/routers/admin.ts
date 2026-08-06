@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { AfterPartyAttendance, getPrisma, WeddingAttendance } from "@darchive/db";
+import { deleteWeddingVideoObject } from "../lib/s3-storage";
 import { deleteWeddingPhotoObject } from "../lib/supabase-storage";
 import { publicProcedure, router } from "../trpc";
 
@@ -127,7 +128,7 @@ export const adminRouter = router({
     .mutation(async ({ input }) => {
       const photo = await getPrisma().weddingPhoto.findUnique({
         where: { id: input.id },
-        select: { id: true, storagePath: true },
+        select: { id: true, storagePath: true, mediaType: true },
       });
 
       if (!photo) {
@@ -135,7 +136,11 @@ export const adminRouter = router({
       }
 
       try {
-        await deleteWeddingPhotoObject(photo.storagePath);
+        if (photo.mediaType === "video") {
+          await deleteWeddingVideoObject(photo.storagePath);
+        } else {
+          await deleteWeddingPhotoObject(photo.storagePath);
+        }
       } catch {
         // Continue deleting the DB row even if the object is already gone.
       }
@@ -238,6 +243,7 @@ export const adminRouter = router({
           id: true,
           uploaderName: true,
           publicUrl: true,
+          mediaType: true,
           isVisible: true,
           byteSize: true,
           createdAt: true,

@@ -82,6 +82,7 @@ export function GallerySection() {
           <GalleryLightbox
             initialIndex={selectedImageIndex}
             onClose={() => setSelectedImageIndex(null)}
+            onIndexChange={setSelectedImageIndex}
           />
         ) : null}
       </AnimatePresence>
@@ -92,9 +93,11 @@ export function GallerySection() {
 function GalleryLightbox({
   initialIndex,
   onClose,
+  onIndexChange,
 }: {
   initialIndex: number;
   onClose: () => void;
+  onIndexChange: (index: number) => void;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(initialIndex);
   const [dragOffset, setDragOffset] = useState(0);
@@ -128,6 +131,7 @@ function GalleryLightbox({
 
         if (nextIndex !== null) {
           setSelectedIndex(nextIndex);
+          onIndexChange(nextIndex);
         }
 
         dragOffsetRef.current = 0;
@@ -135,7 +139,7 @@ function GalleryLightbox({
         transitionTimeoutRef.current = null;
       }, duration);
     },
-    [clearTransitionTimeout],
+    [clearTransitionTimeout, onIndexChange],
   );
 
   const navigate = useCallback(
@@ -303,6 +307,7 @@ function GalleryLightbox({
     return {
       image: weddingContent.gallery[index],
       index,
+      offset,
       isCurrent: offset === 0,
     };
   });
@@ -383,9 +388,9 @@ function GalleryLightbox({
                   : "none",
               }}
             >
-              {slides.map(({ image, index, isCurrent }) => (
+              {slides.map(({ image, index, offset, isCurrent }) => (
                 <div
-                  key={image.id}
+                  key={offset}
                   className="relative h-full w-full shrink-0 bg-brand-beige/70"
                   role="group"
                   aria-roledescription="slide"

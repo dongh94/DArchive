@@ -13,13 +13,13 @@ export function GuestPhotosPage() {
           <header className="flex items-center justify-between border-b border-brand-gold/10 px-5 py-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-brand-gold">Live Photos</p>
-              <p className="mt-1 font-serif text-lg text-brand-ink">Donghee &amp; Jiyeon</p>
+              <p className="mt-1 font-serif text-lg text-brand-ink">동희와 지연의 사진들</p>
             </div>
             <Link
               href="/wedding"
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-brand-gold/25 bg-brand-beige/40 px-3 text-xs font-semibold tracking-[0.06em] text-brand-ink shadow-sm transition hover:border-brand-gold/40 hover:bg-brand-beige active:scale-[0.98]"
             >
-              청첩장 보러가기
+              청첩장 보기
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
           </header>

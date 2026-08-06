@@ -12,14 +12,24 @@ import {
   ChevronUp,
   ImagePlus,
   Loader2,
+  Play,
   RefreshCw,
+  Video,
   X,
 } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 import { trpc } from "@/shared/lib/trpc";
 import { useBodyScrollLock } from "../lib/use-body-scroll-lock";
 import { uploadGuestPhoto } from "../lib/upload-guest-photo";
-import { readStoredUploaderName, storeUploaderName } from "../utils/uploader-name";
+import {
+  MAX_GUEST_VIDEO_BYTES,
+  uploadGuestVideo,
+  validateGuestVideoFile,
+} from "../lib/upload-guest-video";
+import {
+  readStoredUploaderName,
+  storeUploaderName,
+} from "../utils/uploader-name";
 const LIST_INPUT = { limit: 24 } as const;
 const INITIAL_IMAGE_COUNT = 9;
 const MAX_FILES_PER_BATCH = 30;
@@ -30,6 +40,7 @@ type GuestPhoto = {
   id: string;
   uploaderName: string;
   publicUrl: string;
+  mediaType: "image" | "video";
   width: number | null;
   height: number | null;
   createdAt: string;
@@ -44,8 +55,11 @@ type PendingFile = {
 export function GuestPhotosSection() {
   const utils = trpc.useUtils();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
+    null,
+  );
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isVideoUploadOpen, setIsVideoUploadOpen] = useState(false);
 
   const photoQuery = trpc.wedding.photoList.useInfiniteQuery(LIST_INPUT, {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -58,13 +72,18 @@ export function GuestPhotosSection() {
     [photoQuery.data],
   );
   const totalCount = countQuery.data ?? photos.length;
-  const lightboxPhotos = isExpanded ? photos : photos.slice(0, INITIAL_IMAGE_COUNT);
+  const lightboxPhotos = isExpanded
+    ? photos
+    : photos.slice(0, INITIAL_IMAGE_COUNT);
   const gridSlots = useMemo(() => {
     if (isExpanded) {
       return photos.map((photo) => photo);
     }
 
-    return Array.from({ length: INITIAL_IMAGE_COUNT }, (_, index) => photos[index] ?? null);
+    return Array.from(
+      { length: INITIAL_IMAGE_COUNT },
+      (_, index) => photos[index] ?? null,
+    );
   }, [isExpanded, photos]);
 
   const refreshPhotos = () => {
@@ -108,34 +127,50 @@ export function GuestPhotosSection() {
   return (
     <section id="guest-photos" className="flex flex-col px-5 pb-10 pt-8">
       <div className="mb-8 shrink-0 text-center">
-        <h2 className="font-serif text-xl text-brand-ink">함께한 순간을 모아주세요</h2>
+        <h2 className="font-wedding-batang text-xl text-brand-ink">
+          결혼식 당일,
+        </h2>
+        <h2 className="font-serif text-xl text-brand-ink">
+          함께한 순간을 모아주세요
+        </h2>
         <p className="mt-3 text-xs leading-6 text-brand-muted">
           따뜻한 시선으로 담아준 장면을 이곳에 남겨주시면
-          <br />
-          두 사람의 하루에 오래 남을 추억이 됩니다.
+          <br />두 사람의 하루에 오래 남을 추억이 됩니다.
         </p>
         <p className="mt-2 text-[11px] leading-5 text-brand-muted/80">
           작은 순간도 괜찮아요. 마음 가는 대로 올려주세요.
         </p>
       </div>
 
-      <div className="mb-5 grid h-11 shrink-0 grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setIsUploadOpen(true)}
-          className="inline-flex h-full items-center justify-center gap-1.5 rounded-md bg-brand-gold px-3 text-xs font-semibold tracking-[0.04em] text-white transition hover:bg-brand-gold/90"
-        >
-          <ImagePlus className="h-3.5 w-3.5" />
-          사진 올리기
-        </button>
+      <div className="mb-5 flex shrink-0 flex-col gap-2">
+        <div className="grid h-11 grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setIsUploadOpen(true)}
+            className="inline-flex h-full items-center justify-center gap-1.5 rounded-md bg-brand-gold px-3 text-xs font-semibold tracking-[0.04em] text-white transition hover:bg-brand-gold/90"
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+            사진 올리기
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsVideoUploadOpen(true)}
+            className="inline-flex h-full items-center justify-center gap-1.5 rounded-md border border-brand-gold/25 bg-white px-3 text-xs font-semibold tracking-[0.04em] text-brand-ink transition hover:bg-brand-beige/30"
+          >
+            <Video className="h-3.5 w-3.5" />
+            영상 올리기
+          </button>
+        </div>
         <button
           type="button"
           onClick={refreshPhotos}
           disabled={isRefreshing}
-          className="inline-flex h-full items-center justify-center gap-1.5 rounded-md border border-brand-gold/20 bg-white px-3 text-xs font-semibold tracking-[0.04em] text-brand-ink transition hover:bg-brand-beige/30 disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-md border border-brand-gold/20 bg-white px-3 text-xs font-semibold tracking-[0.04em] text-brand-ink transition hover:bg-brand-beige/30 disabled:opacity-60"
         >
-          <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-          새 사진 불러오기
+          <RefreshCw
+            className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
+          />
+          새로 불러오기
         </button>
       </div>
 
@@ -156,19 +191,39 @@ export function GuestPhotosSection() {
                   "group relative overflow-hidden bg-brand-beige/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-gold",
                   isExpanded ? "aspect-square" : "h-full w-full",
                 )}
-                aria-label={`${photo.uploaderName}님 사진 크게 보기`}
+                aria-label={`${photo.uploaderName}님 ${photo.mediaType === "video" ? "영상" : "사진"} 크게 보기`}
               >
-                <img
-                  src={photo.publicUrl}
-                  alt={`${photo.uploaderName}님이 올린 사진`}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
+                {photo.mediaType === "video" ? (
+                  <>
+                    <video
+                      src={photo.publicUrl}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white">
+                        <Play className="h-4 w-4 fill-current" />
+                      </span>
+                    </span>
+                  </>
+                ) : (
+                  <img
+                    src={photo.publicUrl}
+                    alt={`${photo.uploaderName}님이 올린 사진`}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                )}
               </button>
             ) : (
               <div
                 key={`empty-slot-${index}`}
-                className={cn("bg-brand-beige/20", isExpanded ? "aspect-square" : "h-full w-full")}
+                className={cn(
+                  "bg-brand-beige/20",
+                  isExpanded ? "aspect-square" : "h-full w-full",
+                )}
                 aria-hidden="true"
               />
             ),
@@ -177,7 +232,8 @@ export function GuestPhotosSection() {
       </div>
 
       <div className="mt-6 flex min-h-8 shrink-0 flex-col items-center justify-start gap-2">
-        {totalCount > INITIAL_IMAGE_COUNT || photos.length > INITIAL_IMAGE_COUNT ? (
+        {totalCount > INITIAL_IMAGE_COUNT ||
+        photos.length > INITIAL_IMAGE_COUNT ? (
           <button
             type="button"
             onClick={handleExpandToggle}
@@ -198,7 +254,9 @@ export function GuestPhotosSection() {
           </button>
         ) : (
           <p className="text-[11px] tracking-[0.08em] text-brand-muted/70">
-            {photos.length === 0 ? "아직 올라온 사진이 없어요" : `${totalCount.toLocaleString("ko-KR")}장의 사진`}
+            {photos.length === 0
+              ? "아직 올라온 사진·영상이 없어요"
+              : `${totalCount.toLocaleString("ko-KR")}개의 사진·영상`}
           </p>
         )}
 
@@ -209,7 +267,9 @@ export function GuestPhotosSection() {
             disabled={photoQuery.isFetchingNextPage}
             className="flex items-center gap-1.5 text-xs tracking-[0.12em] text-brand-muted transition-colors hover:text-brand-gold disabled:opacity-60"
           >
-            {photoQuery.isFetchingNextPage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {photoQuery.isFetchingNextPage ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : null}
             더 불러오기
           </button>
         ) : null}
@@ -219,8 +279,12 @@ export function GuestPhotosSection() {
         {selectedImageIndex !== null && lightboxPhotos.length > 0 ? (
           <GuestPhotosLightbox
             photos={lightboxPhotos}
-            initialIndex={Math.min(selectedImageIndex, lightboxPhotos.length - 1)}
+            initialIndex={Math.min(
+              selectedImageIndex,
+              lightboxPhotos.length - 1,
+            )}
             onClose={() => setSelectedImageIndex(null)}
+            onIndexChange={setSelectedImageIndex}
           />
         ) : null}
       </AnimatePresence>
@@ -229,6 +293,15 @@ export function GuestPhotosSection() {
         {isUploadOpen ? (
           <GuestPhotoUploadDialog
             onClose={() => setIsUploadOpen(false)}
+            onUploaded={handleUploaded}
+          />
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isVideoUploadOpen ? (
+          <GuestVideoUploadDialog
+            onClose={() => setIsVideoUploadOpen(false)}
             onUploaded={handleUploaded}
           />
         ) : null}
@@ -248,16 +321,15 @@ function GuestPhotoUploadDialog({
 
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploaderName, setUploaderName] = useState("");
+  const [uploaderName, setUploaderName] = useState(readStoredUploaderName);
   const [nameError, setNameError] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
-
-  useEffect(() => {
-    setUploaderName(readStoredUploaderName());
-  }, []);
+  const [uploadProgress, setUploadProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -334,13 +406,19 @@ function GuestPhotoUploadDialog({
       if (!item) continue;
 
       try {
-        const created = await uploadGuestPhoto(utils.client as never, item.file, trimmedName);
+        const created = await uploadGuestPhoto(
+          utils.client as never,
+          item.file,
+          trimmedName,
+        );
         onUploaded(created);
         URL.revokeObjectURL(item.previewUrl);
         setUploadProgress({ done: index + 1, total: pendingFiles.length });
       } catch (error) {
         failedAt = index;
-        setUploadError(error instanceof Error ? error.message : "업로드에 실패했습니다.");
+        setUploadError(
+          error instanceof Error ? error.message : "업로드에 실패했습니다.",
+        );
         break;
       }
     }
@@ -392,7 +470,9 @@ function GuestPhotoUploadDialog({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
           <label className="block space-y-1.5">
-            <span className="text-xs font-semibold tracking-wide text-brand-muted">올린 분 이름</span>
+            <span className="text-xs font-semibold tracking-wide text-brand-muted">
+              올린 분 이름
+            </span>
             <input
               type="text"
               value={uploaderName}
@@ -411,7 +491,9 @@ function GuestPhotoUploadDialog({
               )}
             />
           </label>
-          {nameError ? <p className="text-xs text-brand-ink/75">{nameError}</p> : null}
+          {nameError ? (
+            <p className="text-xs text-brand-ink/75">{nameError}</p>
+          ) : null}
 
           <button
             type="button"
@@ -434,8 +516,15 @@ function GuestPhotoUploadDialog({
           {pendingFiles.length > 0 ? (
             <div className="grid grid-cols-3 gap-1.5">
               {pendingFiles.map((item) => (
-                <div key={item.id} className="relative aspect-square overflow-hidden bg-brand-beige/30">
-                  <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
+                <div
+                  key={item.id}
+                  className="relative aspect-square overflow-hidden bg-brand-beige/30"
+                >
+                  <img
+                    src={item.previewUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                   <button
                     type="button"
                     onClick={() => removePendingFile(item.id)}
@@ -454,7 +543,9 @@ function GuestPhotoUploadDialog({
             </p>
           )}
 
-          {uploadError ? <p className="text-xs text-brand-ink/75">{uploadError}</p> : null}
+          {uploadError ? (
+            <p className="text-xs text-brand-ink/75">{uploadError}</p>
+          ) : null}
           {uploadProgress ? (
             <p className="text-xs text-brand-muted">
               {uploadProgress.done}/{uploadProgress.total}장 업로드 중...
@@ -470,7 +561,275 @@ function GuestPhotoUploadDialog({
             className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-gold px-4 text-sm font-semibold text-white transition hover:bg-brand-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isUploading ? "올리는 중..." : `사진 올리기${pendingFiles.length > 0 ? ` (${pendingFiles.length})` : ""}`}
+            {isUploading
+              ? "올리는 중..."
+              : `사진 올리기${pendingFiles.length > 0 ? ` (${pendingFiles.length})` : ""}`}
+          </button>
+        </footer>
+      </motion.div>
+    </div>,
+    document.body,
+  );
+}
+
+function GuestVideoUploadDialog({
+  onClose,
+  onUploaded,
+}: {
+  onClose: () => void;
+  onUploaded: (media: GuestPhoto) => void;
+}) {
+  useBodyScrollLock();
+
+  const utils = trpc.useUtils();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploaderName, setUploaderName] = useState(readStoredUploaderName);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const pendingFileRef = useRef<PendingFile | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pendingFileRef.current) {
+        URL.revokeObjectURL(pendingFileRef.current.previewUrl);
+      }
+    };
+  }, []);
+
+  const selectFile = (fileList: FileList | null) => {
+    const file = fileList?.[0];
+    if (!file) return;
+
+    try {
+      validateGuestVideoFile(file);
+    } catch (error) {
+      setUploadError(
+        error instanceof Error ? error.message : "영상 파일을 확인해주세요.",
+      );
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    if (pendingFileRef.current) {
+      URL.revokeObjectURL(pendingFileRef.current.previewUrl);
+    }
+
+    const nextFile = {
+      id: `${file.name}-${file.lastModified}-${Date.now()}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    };
+    pendingFileRef.current = nextFile;
+    setPendingFile(nextFile);
+    setUploadError(null);
+    setUploadProgress(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const clearPendingFile = () => {
+    if (pendingFileRef.current) {
+      URL.revokeObjectURL(pendingFileRef.current.previewUrl);
+    }
+    pendingFileRef.current = null;
+    setPendingFile(null);
+    setUploadProgress(null);
+  };
+
+  const handleUpload = async () => {
+    const trimmedName = uploaderName.trim();
+
+    if (!trimmedName) {
+      setNameError("영상을 올리려면 이름을 입력해주세요.");
+      return;
+    }
+
+    if (trimmedName.length > 16) {
+      setNameError("이름은 16자 이내로 입력해주세요.");
+      return;
+    }
+
+    if (!pendingFile) {
+      setUploadError("올릴 영상을 선택해주세요.");
+      return;
+    }
+
+    if (pendingFile.file.size > MAX_GUEST_VIDEO_BYTES) {
+      setUploadError("영상은 50MB 이하로 올려주세요.");
+      return;
+    }
+
+    setNameError(null);
+    setUploadError(null);
+    setUploadProgress(0);
+    storeUploaderName(trimmedName);
+    setIsUploading(true);
+
+    try {
+      const created = await uploadGuestVideo(
+        utils.client as never,
+        pendingFile.file,
+        trimmedName,
+        setUploadProgress,
+      );
+      onUploaded(created);
+      URL.revokeObjectURL(pendingFile.previewUrl);
+      pendingFileRef.current = null;
+      setPendingFile(null);
+      setUploadProgress(null);
+      onClose();
+    } catch (error) {
+      setUploadError(
+        error instanceof Error ? error.message : "업로드에 실패했습니다.",
+      );
+      setUploadProgress(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overscroll-none px-5 py-4">
+      <motion.button
+        type="button"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/45"
+        aria-label="닫기"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+        className="relative z-10 flex max-h-[min(720px,calc(100dvh-32px))] w-full max-w-[360px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="하객 영상 올리기"
+      >
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-brand-gold/10 px-4">
+          <p className="text-sm font-semibold text-brand-ink">영상 올리기</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-brand-ink transition-colors hover:bg-brand-beige"
+            aria-label="닫기"
+          >
+            <X size={20} />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          <p className="text-[11px] leading-5 text-brand-muted">
+            mp4/mov · 최대 50MB · 한 번에 1개
+          </p>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold tracking-wide text-brand-muted">
+              올린 분 이름
+            </span>
+            <input
+              type="text"
+              value={uploaderName}
+              onChange={(event) => {
+                setUploaderName(event.target.value);
+                if (nameError) setNameError(null);
+              }}
+              maxLength={16}
+              placeholder="성함"
+              autoComplete="name"
+              className={cn(
+                "w-full rounded-md border bg-white px-4 py-3 text-sm focus:outline-none",
+                nameError
+                  ? "border-brand-ink/60 focus:border-brand-ink"
+                  : "border-brand-gold/20 focus:border-brand-gold",
+              )}
+            />
+          </label>
+          {nameError ? (
+            <p className="text-xs text-brand-ink/75">{nameError}</p>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-brand-gold/20 bg-brand-beige/20 px-4 text-sm font-semibold text-brand-ink transition hover:bg-brand-beige/40 disabled:opacity-60"
+          >
+            <Video className="h-4 w-4" />
+            앨범에서 영상 선택
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/mp4,video/quicktime,.mp4,.mov"
+            className="hidden"
+            onChange={(event) => selectFile(event.target.files)}
+          />
+
+          {pendingFile ? (
+            <div className="relative aspect-[3/4] overflow-hidden bg-brand-beige/30">
+              <video
+                src={pendingFile.previewUrl}
+                className="h-full w-full object-contain"
+                controls
+                playsInline
+                preload="metadata"
+              />
+              <button
+                type="button"
+                onClick={clearPendingFile}
+                disabled={isUploading}
+                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white transition hover:bg-black/70 disabled:opacity-50"
+                aria-label="선택 영상 제거"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <p className="text-center text-xs leading-5 text-brand-muted">
+              짧은 영상 하나로 남겨주세요.
+            </p>
+          )}
+
+          {uploadError ? (
+            <p className="text-xs text-brand-ink/75">{uploadError}</p>
+          ) : null}
+          {uploadProgress !== null ? (
+            <div className="space-y-1.5">
+              <div className="h-1.5 overflow-hidden rounded-full bg-brand-beige">
+                <div
+                  className="h-full rounded-full bg-brand-gold transition-[width]"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-brand-muted">
+                {uploadProgress < 100
+                  ? `${uploadProgress}% 업로드 중...`
+                  : "업로드 확인 중..."}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        <footer className="shrink-0 border-t border-brand-gold/10 p-4">
+          <button
+            type="button"
+            onClick={() => void handleUpload()}
+            disabled={isUploading || !pendingFile}
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-gold px-4 text-sm font-semibold text-white transition hover:bg-brand-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isUploading ? "올리는 중..." : "영상 올리기"}
           </button>
         </footer>
       </motion.div>
@@ -483,15 +842,19 @@ function GuestPhotosLightbox({
   photos,
   initialIndex,
   onClose,
+  onIndexChange,
 }: {
   photos: GuestPhoto[];
   initialIndex: number;
   onClose: () => void;
+  onIndexChange: (index: number) => void;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(initialIndex);
   const [dragOffset, setDragOffset] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [transitionDuration, setTransitionDuration] = useState(MAX_SLIDE_TRANSITION_DURATION);
+  const [transitionDuration, setTransitionDuration] = useState(
+    MAX_SLIDE_TRANSITION_DURATION,
+  );
   const viewportRef = useRef<HTMLDivElement>(null);
   const pointerStartXRef = useRef(0);
   const pointerStartTimeRef = useRef(0);
@@ -519,6 +882,7 @@ function GuestPhotosLightbox({
 
         if (nextIndex !== null) {
           setSelectedIndex(nextIndex);
+          onIndexChange(nextIndex);
         }
 
         dragOffsetRef.current = 0;
@@ -526,7 +890,7 @@ function GuestPhotosLightbox({
         transitionTimeoutRef.current = null;
       }, duration);
     },
-    [clearTransitionTimeout],
+    [clearTransitionTimeout, onIndexChange],
   );
 
   const navigate = useCallback(
@@ -536,11 +900,18 @@ function GuestPhotosLightbox({
       }
 
       const directionOffset = direction === "next" ? 1 : -1;
-      const nextIndex = getWrappedIndex(selectedIndex + directionOffset, imageCount);
+      const nextIndex = getWrappedIndex(
+        selectedIndex + directionOffset,
+        imageCount,
+      );
       const viewportWidth = viewportRef.current?.clientWidth ?? 410;
-      const targetOffset = direction === "next" ? -viewportWidth : viewportWidth;
+      const targetOffset =
+        direction === "next" ? -viewportWidth : viewportWidth;
       const remainingDistance = Math.abs(targetOffset - dragOffsetRef.current);
-      const duration = getSlideTransitionDuration(remainingDistance, viewportWidth);
+      const duration = getSlideTransitionDuration(
+        remainingDistance,
+        viewportWidth,
+      );
 
       setTransitionDuration(duration);
       setIsAnimating(true);
@@ -579,7 +950,11 @@ function GuestPhotosLightbox({
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "mouse" || activePointerIdRef.current !== event.pointerId || isAnimating) {
+    if (
+      event.pointerType !== "mouse" ||
+      activePointerIdRef.current !== event.pointerId ||
+      isAnimating
+    ) {
       return;
     }
 
@@ -587,7 +962,11 @@ function GuestPhotosLightbox({
   };
 
   const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "mouse" || activePointerIdRef.current !== event.pointerId || isAnimating) {
+    if (
+      event.pointerType !== "mouse" ||
+      activePointerIdRef.current !== event.pointerId ||
+      isAnimating
+    ) {
       return;
     }
 
@@ -610,7 +989,11 @@ function GuestPhotosLightbox({
   };
 
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (!isTouchDraggingRef.current || isAnimating || event.touches.length !== 1) {
+    if (
+      !isTouchDraggingRef.current ||
+      isAnimating ||
+      event.touches.length !== 1
+    ) {
       return;
     }
 
@@ -629,7 +1012,10 @@ function GuestPhotosLightbox({
   const updateDragOffset = (clientX: number) => {
     const viewportWidth = viewportRef.current?.clientWidth ?? 410;
     const nextOffset = clientX - pointerStartXRef.current;
-    const boundedOffset = Math.max(-viewportWidth, Math.min(viewportWidth, nextOffset));
+    const boundedOffset = Math.max(
+      -viewportWidth,
+      Math.min(viewportWidth, nextOffset),
+    );
 
     dragOffsetRef.current = boundedOffset;
     setDragOffset(boundedOffset);
@@ -637,11 +1023,15 @@ function GuestPhotosLightbox({
 
   const finishDrag = () => {
     const finalDragOffset = dragOffsetRef.current;
-    const elapsedTime = Math.max(performance.now() - pointerStartTimeRef.current, 1);
+    const elapsedTime = Math.max(
+      performance.now() - pointerStartTimeRef.current,
+      1,
+    );
     const velocity = finalDragOffset / elapsedTime;
     const viewportWidth = viewportRef.current?.clientWidth ?? 410;
     const shouldNavigate =
-      Math.abs(finalDragOffset) > viewportWidth * 0.14 || Math.abs(velocity) > 0.45;
+      Math.abs(finalDragOffset) > viewportWidth * 0.14 ||
+      Math.abs(velocity) > 0.45;
 
     if (shouldNavigate && finalDragOffset !== 0) {
       navigate(finalDragOffset < 0 ? "next" : "previous");
@@ -649,7 +1039,10 @@ function GuestPhotosLightbox({
     }
 
     setIsAnimating(true);
-    const snapBackDuration = getSlideTransitionDuration(Math.abs(finalDragOffset), viewportWidth);
+    const snapBackDuration = getSlideTransitionDuration(
+      Math.abs(finalDragOffset),
+      viewportWidth,
+    );
     setTransitionDuration(snapBackDuration);
     dragOffsetRef.current = 0;
     setDragOffset(0);
@@ -661,6 +1054,7 @@ function GuestPhotosLightbox({
     return {
       photo: photos[index],
       index,
+      offset,
     };
   });
 
@@ -739,25 +1133,40 @@ function GuestPhotosLightbox({
                   : "none",
               }}
             >
-              {slides.map(({ photo, index }) => (
+              {slides.map(({ photo, index, offset }) => (
                 <div
-                  key={`${photo?.id ?? "empty"}-${index}`}
+                  key={offset}
                   className="relative h-full w-full shrink-0 bg-brand-beige/70"
                   role="group"
                   aria-roledescription="slide"
                   aria-label={`${index + 1} / ${imageCount}`}
                 >
                   {photo ? (
-                    <img
-                      src={photo.publicUrl}
-                      alt={`${photo.uploaderName}님이 올린 사진`}
-                      className={`pointer-events-none absolute inset-0 h-full w-full select-none ${
-                        photo.height && photo.width && photo.height > photo.width
-                          ? "object-cover"
-                          : "object-contain"
-                      }`}
-                      draggable={false}
-                    />
+                    photo.mediaType === "video" ? (
+                      <video
+                        src={photo.publicUrl}
+                        className={cn(
+                          "absolute inset-0 h-full w-full select-none bg-black object-contain",
+                          offset === 0 ? "pointer-events-auto" : "pointer-events-none",
+                        )}
+                        controls={offset === 0}
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={photo.publicUrl}
+                        alt={`${photo.uploaderName}님이 올린 사진`}
+                        className={`pointer-events-none absolute inset-0 h-full w-full select-none ${
+                          photo.height &&
+                          photo.width &&
+                          photo.height > photo.width
+                            ? "object-cover"
+                            : "object-contain"
+                        }`}
+                        draggable={false}
+                      />
+                    )
                   ) : null}
                 </div>
               ))}
@@ -766,16 +1175,26 @@ function GuestPhotosLightbox({
 
           {imageCount > 1 ? (
             <>
-              <LightboxNavigationButton direction="previous" onClick={() => navigate("previous")} />
-              <LightboxNavigationButton direction="next" onClick={() => navigate("next")} />
+              <LightboxNavigationButton
+                direction="previous"
+                onClick={() => navigate("previous")}
+              />
+              <LightboxNavigationButton
+                direction="next"
+                onClick={() => navigate("next")}
+              />
             </>
           ) : null}
         </div>
 
         <footer className="flex h-14 shrink-0 items-center justify-between px-4">
           <div>
-            <p className="text-xs font-medium text-brand-ink">지금 이 순간을 함께 모아보세요.</p>
-            <p className="mt-0.5 text-[10px] text-brand-muted">옆으로 밀어 다음 사진을 볼 수 있어요</p>
+            <p className="text-xs font-medium text-brand-ink">
+              지금 이 순간을 함께 모아보세요.
+            </p>
+            <p className="mt-0.5 text-[10px] text-brand-muted">
+              옆으로 밀어 다음 사진을 볼 수 있어요
+            </p>
           </div>
           <div className="h-1 w-16 overflow-hidden rounded-full bg-brand-beige">
             <motion.div
@@ -824,6 +1243,7 @@ function getSlideTransitionDuration(distance: number, viewportWidth: number) {
 
   return Math.round(
     MIN_SLIDE_TRANSITION_DURATION +
-      (MAX_SLIDE_TRANSITION_DURATION - MIN_SLIDE_TRANSITION_DURATION) * distanceRatio,
+      (MAX_SLIDE_TRANSITION_DURATION - MIN_SLIDE_TRANSITION_DURATION) *
+        distanceRatio,
   );
 }

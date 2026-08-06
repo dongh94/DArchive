@@ -9,6 +9,7 @@ type CreatedPhoto = {
   id: string;
   uploaderName: string;
   publicUrl: string;
+  mediaType: "image" | "video";
   width: number | null;
   height: number | null;
   createdAt: string;

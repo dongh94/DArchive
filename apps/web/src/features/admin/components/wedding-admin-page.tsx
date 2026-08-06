@@ -54,6 +54,7 @@ type WeddingOverview = {
     id: string;
     uploaderName: string;
     publicUrl: string;
+    mediaType: string;
     isVisible: boolean;
     byteSize: number;
     createdAt: string;
@@ -438,14 +439,28 @@ export function WeddingAdminPage({
           {overview.photos.length > 0 ? (
             overview.photos.map((photo) => (
               <article key={photo.id} className="overflow-hidden rounded-lg border border-border">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.publicUrl} alt={`${photo.uploaderName} photo`} className="aspect-square w-full object-cover" />
+                {photo.mediaType === "video" ? (
+                  <video
+                    src={photo.publicUrl}
+                    className="aspect-square w-full object-cover bg-black"
+                    muted
+                    playsInline
+                    preload="metadata"
+                    controls
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={photo.publicUrl} alt={`${photo.uploaderName} photo`} className="aspect-square w-full object-cover" />
+                )}
                 <div className="space-y-3 p-4">
                   <div>
                     <p className="font-semibold">{photo.uploaderName}</p>
                     <p className="mt-1 text-xs text-foreground/45">{formatDate(photo.createdAt)}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex rounded-lg bg-muted px-2.5 py-1 text-xs font-bold text-foreground/70">
+                      {photo.mediaType === "video" ? "Video" : "Photo"}
+                    </span>
                     <span
                       className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${
                         photo.isVisible ? "bg-[#34a853]/10 text-[#1f7a3f]" : "bg-muted text-foreground/45"
@@ -467,7 +482,7 @@ export function WeddingAdminPage({
                       <input type="hidden" name="id" value={photo.id} />
                       <ConfirmSubmitButton
                         className="inline-flex rounded-lg border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs font-bold text-destructive transition hover:bg-destructive/10"
-                        message={`${photo.uploaderName}님의 사진을 삭제할까요?`}
+                        message={`${photo.uploaderName}님의 ${photo.mediaType === "video" ? "영상" : "사진"}을 삭제할까요?`}
                       >
                         Delete
                       </ConfirmSubmitButton>
