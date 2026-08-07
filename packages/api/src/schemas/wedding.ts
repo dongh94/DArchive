@@ -56,7 +56,25 @@ export const guestbookEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
   message: z.string(),
+  commentCount: z.number().int().nonnegative(),
   createdAt: z.string(),
+});
+
+export const guestbookCommentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  message: z.string(),
+  parentId: z.string().nullable(),
+  createdAt: z.string(),
+  replies: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      message: z.string(),
+      parentId: z.string(),
+      createdAt: z.string(),
+    }),
+  ),
 });
 
 export const guestbookListInputSchema = z
@@ -80,6 +98,26 @@ export const guestbookDeleteInputSchema = z.object({
 
 export const guestbookUpdateInputSchema = z.object({
   id: z.string({ error: "수정할 메시지를 찾을 수 없습니다." }).min(1, { error: "수정할 메시지를 찾을 수 없습니다." }),
+  name: nameSchema,
+  nextName: nameSchema,
+  message: guestbookMessageSchema,
+  website: honeypotSchema,
+});
+
+export const guestbookCommentListInputSchema = z.object({
+  guestbookEntryId: z.string({ error: "방명록을 찾을 수 없습니다." }).min(1, { error: "방명록을 찾을 수 없습니다." }),
+});
+
+export const guestbookCommentCreateInputSchema = z.object({
+  guestbookEntryId: z.string({ error: "방명록을 찾을 수 없습니다." }).min(1, { error: "방명록을 찾을 수 없습니다." }),
+  parentId: z.string().min(1).nullable().optional(),
+  name: nameSchema,
+  message: guestbookMessageSchema,
+  website: honeypotSchema,
+});
+
+export const guestbookCommentUpdateInputSchema = z.object({
+  id: z.string({ error: "수정할 댓글을 찾을 수 없습니다." }).min(1, { error: "수정할 댓글을 찾을 수 없습니다." }),
   name: nameSchema,
   nextName: nameSchema,
   message: guestbookMessageSchema,
@@ -229,9 +267,13 @@ export const videoUploadDeleteInputSchema = z.object({
 export type Attendance = z.infer<typeof attendanceSchema>;
 export type AfterPartyAttendance = z.infer<typeof afterPartyAttendanceSchema>;
 export type GuestbookEntry = z.infer<typeof guestbookEntrySchema>;
+export type GuestbookComment = z.infer<typeof guestbookCommentSchema>;
 export type GuestbookCreateInput = z.input<typeof guestbookCreateInputSchema>;
 export type GuestbookDeleteInput = z.input<typeof guestbookDeleteInputSchema>;
 export type GuestbookUpdateInput = z.input<typeof guestbookUpdateInputSchema>;
+export type GuestbookCommentListInput = z.input<typeof guestbookCommentListInputSchema>;
+export type GuestbookCommentCreateInput = z.input<typeof guestbookCommentCreateInputSchema>;
+export type GuestbookCommentUpdateInput = z.input<typeof guestbookCommentUpdateInputSchema>;
 export type GuestbookListInput = z.input<typeof guestbookListInputSchema>;
 export type RsvpInput = z.input<typeof rsvpInputSchema>;
 export type PhotoListInput = z.input<typeof photoListInputSchema>;

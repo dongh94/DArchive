@@ -3,8 +3,10 @@ import { CalendarDays, Download, Images, MessageSquareText, PartyPopper, RotateC
 import { ConfirmSubmitButton } from "./confirm-submit-button";
 import {
   deleteWeddingGuestbook,
+  deleteWeddingGuestbookComment,
   deleteWeddingPhoto,
   deleteWeddingRsvp,
+  setWeddingGuestbookCommentVisibility,
   setWeddingGuestbookVisibility,
   setWeddingPhotoVisibility,
   updateWeddingRsvp,
@@ -50,6 +52,15 @@ type WeddingOverview = {
     isVisible: boolean;
     createdAt: string;
     updatedAt: string;
+    comments: Array<{
+      id: string;
+      name: string;
+      message: string;
+      parentId: string | null;
+      isVisible: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>;
   }>;
   photos: Array<{
     id: string;
@@ -95,6 +106,7 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Asia/Seoul",
   }).format(new Date(value));
 }
 
@@ -428,6 +440,12 @@ export function WeddingAdminPage({
                     </ConfirmSubmitButton>
                   </form>
                 </div>
+                <div className="md:col-span-3">
+                  <AdminGuestbookComments
+                    comments={entry.comments}
+                    entryName={entry.name}
+                  />
+                </div>
               </article>
             ))
           ) : (
@@ -573,5 +591,106 @@ function PaginationControls({
         </Link>
       </div>
     </div>
+  );
+}
+
+function AdminGuestbookComments({
+  comments,
+  entryName,
+}: {
+  comments: WeddingOverview["guestbookEntries"][number]["comments"];
+  entryName: string;
+}) {
+  if (comments.length === 0) {
+    return (
+      <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-xs text-foreground/45">
+        댓글이 없습니다.
+      </p>
+    );
+  }
+
+  const rootComments = comments.filter((comment) => comment.parentId === null);
+  const repliesByParentId = new Map<string, typeof comments>();
+
+  for (const comment of comments) {
+    if (!comment.parentId) continue;
+    repliesByParentId.set(comment.parentId, [
+      ...(repliesByParentId.get(comment.parentId) ?? []),
+      comment,
+    ]);
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+      <p className="text-xs font-bold text-foreground/50">
+        Comments {comments.length.toLocaleString("ko-KR")}
+      </p>
+      <div className="space-y-2">
+        {rootComments.map((comment) => (
+          <div key={comment.id} className="space-y-2">
+            <AdminGuestbookCommentItem
+              comment={comment}
+              confirmContext={`${entryName}님의 방명록 댓글`}
+            />
+            {(repliesByParentId.get(comment.id) ?? []).map((reply) => (
+              <div key={reply.id} className="ml-5 border-l border-border pl-3">
+                <AdminGuestbookCommentItem
+                  comment={reply}
+                  confirmContext={`${entryName}님의 방명록 답글`}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminGuestbookCommentItem({
+  comment,
+  confirmContext,
+}: {
+  comment: WeddingOverview["guestbookEntries"][number]["comments"][number];
+  confirmContext: string;
+}) {
+  return (
+    <article className="rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold">{comment.name}</p>
+          <p className="mt-1 text-xs text-foreground/45">
+            {formatDate(comment.createdAt)} · Updated {formatDate(comment.updatedAt)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${comment.isVisible ? "bg-[#34a853]/10 text-[#1f7a3f]" : "bg-muted text-foreground/45"}`}>
+            {comment.isVisible ? "Visible" : "Hidden"}
+          </span>
+          <form action={setWeddingGuestbookCommentVisibility}>
+            <input type="hidden" name="id" value={comment.id} />
+            <input type="hidden" name="isVisible" value={comment.isVisible ? "false" : "true"} />
+            <button
+              type="submit"
+              className="inline-flex rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-bold transition hover:bg-muted"
+            >
+              {comment.isVisible ? "Hide" : "Restore"}
+            </button>
+          </form>
+          <form action={deleteWeddingGuestbookComment}>
+            <input type="hidden" name="id" value={comment.id} />
+            <ConfirmSubmitButton
+              className="inline-flex rounded-lg border border-destructive/20 bg-destructive/5 px-2.5 py-1 text-xs font-bold text-destructive transition hover:bg-destructive/10"
+              message={`${confirmContext}을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`}
+            >
+              Delete
+            </ConfirmSubmitButton>
+          </form>
+        </div>
+      </div>
+      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-foreground/70">
+        {comment.message}
+      </p>
+    </article>
   );
 }

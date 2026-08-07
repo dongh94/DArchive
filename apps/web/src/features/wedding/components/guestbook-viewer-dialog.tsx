@@ -8,6 +8,7 @@ import { cn } from "@/shared/lib/cn";
 import { trpc } from "@/shared/lib/trpc";
 import { useDebouncedValue } from "@/shared/lib/use-debounced-value";
 import { useBodyScrollLock } from "../lib/use-body-scroll-lock";
+import { GuestbookCommentsDialog } from "./guestbook-comments-dialog";
 import { GuestbookEntryCard } from "./guestbook-entry-card";
 
 const SEARCH_DEBOUNCE_MS = 500;
@@ -35,6 +36,7 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
   const isTypingSearch = searchInput.trim() !== debouncedSearch;
   const trimmedSearch = searchInput.trim();
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
 
   const listInput = useMemo(
     () => ({ limit: LIST_LIMIT, search: debouncedSearch || undefined }),
@@ -185,6 +187,7 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
                   <GuestbookEntryCard
                     key={entry.id}
                     entry={entry}
+                    onOpenDetail={() => setCommentTargetId(entry.id)}
                     actionSlot={
                       <button
                         type="button"
@@ -251,6 +254,12 @@ export function GuestbookViewerDialog({ onClose }: GuestbookViewerDialogProps) {
           )}
         </div>
       </motion.div>
+      {commentTargetId ? (
+        <GuestbookCommentsDialog
+          guestbookEntryId={commentTargetId}
+          onClose={() => setCommentTargetId(null)}
+        />
+      ) : null}
     </div>
   );
 }
