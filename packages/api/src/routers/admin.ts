@@ -117,6 +117,34 @@ export const adminRouter = router({
       return { ok: true as const };
     }),
 
+  weddingGuestbookCommentSetVisibility: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        isVisible: z.boolean(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const comment = await getPrisma().weddingGuestbookComment.update({
+        where: { id: input.id },
+        data: { isVisible: input.isVisible },
+        select: { id: true, isVisible: true },
+      });
+
+      return comment;
+    }),
+
+  weddingGuestbookCommentDelete: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await getPrisma().weddingGuestbookComment.delete({
+        where: { id: input.id },
+        select: { id: true },
+      });
+
+      return { ok: true as const };
+    }),
+
   weddingPhotoSetVisibility: adminProcedure
     .input(
       z.object({
@@ -244,6 +272,18 @@ export const adminRouter = router({
           isVisible: true,
           createdAt: true,
           updatedAt: true,
+          comments: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              name: true,
+              message: true,
+              parentId: true,
+              isVisible: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
         },
       }),
       prisma.weddingPhoto.findMany({
@@ -326,9 +366,17 @@ export const adminRouter = router({
         updatedAt: rsvp.updatedAt.toISOString(),
       })),
       guestbookEntries: guestbookEntries.map((entry) => ({
-        ...entry,
+        id: entry.id,
+        name: entry.name,
+        message: entry.message,
+        isVisible: entry.isVisible,
         createdAt: entry.createdAt.toISOString(),
         updatedAt: entry.updatedAt.toISOString(),
+        comments: entry.comments.map((comment) => ({
+          ...comment,
+          createdAt: comment.createdAt.toISOString(),
+          updatedAt: comment.updatedAt.toISOString(),
+        })),
       })),
       photos: photos.map((photo) => ({
         ...photo,

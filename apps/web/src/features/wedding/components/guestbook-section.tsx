@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "motion/react";
@@ -13,6 +13,7 @@ import {
 import { cn } from "@/shared/lib/cn";
 import { trpc } from "@/shared/lib/trpc";
 import { SectionHeader } from "./section-header";
+import { GuestbookCommentsDialog } from "./guestbook-comments-dialog";
 import { GuestbookEntryCard } from "./guestbook-entry-card";
 
 type GuestbookSectionProps = {
@@ -26,6 +27,7 @@ export const GuestbookSection = memo(function GuestbookSection({
   onOpenViewer,
 }: GuestbookSectionProps) {
   const utils = trpc.useUtils();
+  const [commentTargetId, setCommentTargetId] = useState<string | null>(null);
   const previewQuery = trpc.wedding.guestbookList.useQuery(PREVIEW_INPUT);
   const countQuery = trpc.wedding.guestbookCount.useQuery();
   const createGuestbookEntry = trpc.wedding.guestbookCreate.useMutation({
@@ -174,7 +176,11 @@ export const GuestbookSection = memo(function GuestbookSection({
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ type: "spring", stiffness: 320, damping: 26 }}
             >
-              <GuestbookEntryCard entry={entry} clampMessage />
+              <GuestbookEntryCard
+                entry={entry}
+                clampMessage
+                onOpenDetail={() => setCommentTargetId(entry.id)}
+              />
             </motion.div>
           ))}
         </AnimatePresence>
@@ -200,6 +206,15 @@ export const GuestbookSection = memo(function GuestbookSection({
           </div>
         ) : null}
       </div>
+
+      <AnimatePresence>
+        {commentTargetId ? (
+          <GuestbookCommentsDialog
+            guestbookEntryId={commentTargetId}
+            onClose={() => setCommentTargetId(null)}
+          />
+        ) : null}
+      </AnimatePresence>
     </section>
   );
 });

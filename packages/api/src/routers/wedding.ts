@@ -17,6 +17,9 @@ import {
   getWeddingPhotoPublicUrl,
 } from "../lib/supabase-storage";
 import {
+  guestbookCommentCreateInputSchema,
+  guestbookCommentListInputSchema,
+  guestbookCommentUpdateInputSchema,
   guestbookCreateInputSchema,
   guestbookDeleteInputSchema,
   guestbookListInputSchema,
@@ -34,6 +37,19 @@ const PRISMA_UNIQUE_VIOLATION = "P2002";
 
 function isPrismaKnownError(error: unknown, code: string) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === code;
+}
+
+function serializeGuestbookComment(comment: {
+  id: string;
+  name: string;
+  message: string;
+  parentId: string | null;
+  createdAt: Date;
+}) {
+  return {
+    ...comment,
+    createdAt: comment.createdAt.toISOString(),
+  };
 }
 
 export const weddingRouter = router({
@@ -57,12 +73,25 @@ export const weddingRouter = router({
       orderBy: { createdAt: "desc" },
       take: limit + 1,
       ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
-      select: { id: true, name: true, message: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        message: true,
+        createdAt: true,
+        _count: {
+          select: {
+            comments: { where: { isVisible: true } },
+          },
+        },
+      },
     });
 
     const hasMore = rows.length > limit;
     const items = (hasMore ? rows.slice(0, limit) : rows).map((entry) => ({
-      ...entry,
+      id: entry.id,
+      name: entry.name,
+      message: entry.message,
+      commentCount: entry._count.comments,
       createdAt: entry.createdAt.toISOString(),
     }));
 
@@ -96,7 +125,7 @@ export const weddingRouter = router({
           select: { id: true, name: true, message: true, createdAt: true },
         });
 
-        return { ...entry, createdAt: entry.createdAt.toISOString() };
+        return { ...entry, commentCount: 0, createdAt: entry.createdAt.toISOString() };
       } catch (error) {
         if (isPrismaKnownError(error, PRISMA_UNIQUE_VIOLATION)) {
           throw new TRPCError({
@@ -185,7 +214,11 @@ export const weddingRouter = router({
           select: { id: true, name: true, message: true, createdAt: true },
         });
 
-        return { ...entry, createdAt: entry.createdAt.toISOString() };
+        const commentCount = await getPrisma().weddingGuestbookComment.count({
+          where: { guestbookEntryId: entry.id, isVisible: true },
+        });
+
+        return { ...entry, commentCount, createdAt: entry.createdAt.toISOString() };
       } catch (error) {
         if (isPrismaKnownError(error, PRISMA_UNIQUE_VIOLATION)) {
           throw new TRPCError({
@@ -196,6 +229,172 @@ export const weddingRouter = router({
 
         throw error;
       }
+    }),
+
+  guestbookCommentList: publicProcedure
+    .input(guestbookCommentListInputSchema)
+    .query(async ({ input }) => {
+      const entry = await getPrisma().weddingGuestbookEntry.findFirst({
+        where: { id: input.guestbookEntryId, isVisible: true },
+        select: { id: true, name: true, message: true, createdAt: true },
+      });
+
+      if (!entry) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "방명록을 찾을 수 없습니다.",
+        });
+      }
+
+      const comments = await getPrisma().weddingGuestbookComment.findMany({
+        where: { guestbookEntryId: entry.id, isVisible: true },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          name: true,
+          message: true,
+          parentId: true,
+          createdAt: true,
+        },
+      });
+
+      const rootComments = comments.filter((comment) => comment.parentId === null);
+      const repliesByParentId = new Map<string, typeof comments>();
+
+      for (const comment of comments) {
+        if (!comment.parentId) continue;
+        repliesByParentId.set(comment.parentId, [
+          ...(repliesByParentId.get(comment.parentId) ?? []),
+          comment,
+        ]);
+      }
+
+      return {
+        entry: {
+          ...entry,
+          commentCount: comments.length,
+          createdAt: entry.createdAt.toISOString(),
+        },
+        comments: rootComments.map((comment) => ({
+          ...serializeGuestbookComment(comment),
+          replies: (repliesByParentId.get(comment.id) ?? []).map((reply) => ({
+            ...serializeGuestbookComment(reply),
+            parentId: reply.parentId ?? comment.id,
+          })),
+        })),
+      };
+    }),
+
+  guestbookCommentCreate: publicProcedure
+    .input(guestbookCommentCreateInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (input.website) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "잘못된 요청입니다." });
+      }
+
+      if (isRateLimited(`guestbook-comment-create:${ctx.ip}`, 20, 60_000)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "잠시 후 다시 시도해주세요.",
+        });
+      }
+
+      const entry = await getPrisma().weddingGuestbookEntry.findFirst({
+        where: { id: input.guestbookEntryId, isVisible: true },
+        select: { id: true },
+      });
+
+      if (!entry) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "방명록을 찾을 수 없습니다.",
+        });
+      }
+
+      if (input.parentId) {
+        const parent = await getPrisma().weddingGuestbookComment.findFirst({
+          where: {
+            id: input.parentId,
+            guestbookEntryId: entry.id,
+            parentId: null,
+            isVisible: true,
+          },
+          select: { id: true },
+        });
+
+        if (!parent) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "답글을 남길 댓글을 찾을 수 없습니다.",
+          });
+        }
+      }
+
+      const comment = await getPrisma().weddingGuestbookComment.create({
+        data: {
+          guestbookEntryId: entry.id,
+          parentId: input.parentId ?? null,
+          name: input.name,
+          message: input.message,
+        },
+        select: {
+          id: true,
+          name: true,
+          message: true,
+          parentId: true,
+          createdAt: true,
+        },
+      });
+
+      return serializeGuestbookComment(comment);
+    }),
+
+  guestbookCommentUpdate: publicProcedure
+    .input(guestbookCommentUpdateInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (input.website) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "잘못된 요청입니다." });
+      }
+
+      if (isRateLimited(`guestbook-comment-update:${ctx.ip}`, 20, 60_000)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "잠시 후 다시 시도해주세요.",
+        });
+      }
+
+      const existing = await getPrisma().weddingGuestbookComment.findFirst({
+        where: { id: input.id, isVisible: true },
+        select: { id: true, name: true },
+      });
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "수정할 댓글을 찾을 수 없습니다.",
+        });
+      }
+
+      if (existing.name !== input.name) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "작성자 성함이 일치하지 않습니다.",
+        });
+      }
+
+      const comment = await getPrisma().weddingGuestbookComment.update({
+        where: { id: existing.id },
+        data: { name: input.nextName, message: input.message },
+        select: {
+          id: true,
+          name: true,
+          message: true,
+          parentId: true,
+          createdAt: true,
+        },
+      });
+
+      return serializeGuestbookComment(comment);
     }),
 
   rsvpCreate: publicProcedure
