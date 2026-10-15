@@ -35,5 +35,8 @@ export function getPrisma() {
 export type { Prisma } from "./generated/prisma/client";
 export {
   AfterPartyAttendance,
+  MarketRegion,
+  StockMarket,
+  StrategySide,
   WeddingAttendance,
 } from "./generated/prisma/enums";
