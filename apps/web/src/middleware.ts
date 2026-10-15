@@ -5,14 +5,7 @@ const WEDDING_ONLY_PATHS = ["/wedding", "/admin"] as const;
 type SitePublicMode = "full" | "wedding-only";
 
 function getSitePublicMode(): SitePublicMode {
-  const configured = process.env.SITE_PUBLIC_MODE;
-
-  if (configured === "full" || configured === "wedding-only") {
-    return configured;
-  }
-
-  // Vercel production stays wedding-only unless SITE_PUBLIC_MODE=full is set.
-  if (process.env.VERCEL_ENV === "production") {
+  if (process.env.SITE_PUBLIC_MODE === "wedding-only") {
     return "wedding-only";
   }
 
