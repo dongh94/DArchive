@@ -85,3 +85,83 @@ model WeddingPhoto {
   @@index([createdAt])
   @@index([mediaType, createdAt])
 }
+
+enum StockMarket {
+  KOSPI
+  KOSDAQ
+  NYSE
+  NASDAQ
+  AMEX
+}
+
+enum MarketRegion {
+  KR
+  US
+}
+
+enum StrategySide {
+  BUY
+  SELL
+}
+
+model Stock {
+  symbol        String         @id @db.VarChar(20)
+  name          String         @db.VarChar(100)
+  market        StockMarket
+  region        MarketRegion   @default(KR)
+  sectorName    String?        @db.VarChar(100)
+  marketCap     BigInt?
+  isCommonShare Boolean        @default(true)
+  isActive      Boolean        @default(true)
+  updatedAt     DateTime       @updatedAt
+  candles       DailyCandle[]
+  picks         StrategyPick[]
+
+  @@index([region, isActive])
+}
+
+model DailyCandle {
+  symbol String   @db.VarChar(20)
+  date   DateTime @db.Date
+  open   Float
+  high   Float
+  low    Float
+  close  Float
+  volume BigInt
+  stock  Stock    @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+
+  @@id([symbol, date])
+  @@index([date])
+}
+
+model StrategyRun {
+  id           String         @id @default(cuid())
+  strategyId   String         @db.VarChar(40)
+  region       MarketRegion
+  side         StrategySide
+  asOfDate     DateTime       @db.Date
+  universeSize Int
+  createdAt    DateTime       @default(now())
+  picks        StrategyPick[]
+
+  @@unique([strategyId, region, side, asOfDate])
+  @@index([asOfDate])
+}
+
+model StrategyPick {
+  id        String      @id @default(cuid())
+  runId     String
+  rank      Int
+  symbol    String      @db.VarChar(20)
+  score     Float
+  eligible  Boolean
+  checks    Json
+  rationale String      @db.VarChar(1000)
+  levels    Json?
+  run       StrategyRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stock     Stock       @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+
+  @@unique([runId, rank])
+  @@index([runId, eligible, score])
+  @@index([symbol])
+}

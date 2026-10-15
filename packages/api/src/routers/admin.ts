@@ -3,20 +3,12 @@ import { z } from "zod";
 import { AfterPartyAttendance, getPrisma, WeddingAttendance } from "@darchive/db";
 import { deleteWeddingVideoObject } from "../lib/s3-storage";
 import { deleteWeddingPhotoObject } from "../lib/supabase-storage";
-import { publicProcedure, router } from "../trpc";
+import { adminProcedure, router } from "../trpc";
 
 const normalizePhoneDigits = (value: string) => value.replace(/\D/g, "");
 const ADMIN_RSVP_PAGE_SIZE = 10;
 const ADMIN_GUESTBOOK_PAGE_SIZE = 8;
 const ADMIN_PHOTO_PAGE_SIZE = 12;
-
-const adminProcedure = publicProcedure.use(({ ctx, next }) => {
-  if (!ctx.isAdmin) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: "Admin session is required" });
-  }
-
-  return next({ ctx });
-});
 
 const adminWeddingRsvpInput = z
   .object({

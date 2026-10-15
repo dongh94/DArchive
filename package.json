@@ -11,7 +11,9 @@
     "dev": "pnpm db:generate && pnpm --filter @darchive/web dev",
     "lint": "pnpm --filter @darchive/web lint",
     "start": "pnpm --filter @darchive/web start",
-    "typecheck": "pnpm db:generate && pnpm --filter @darchive/web typecheck",
+    "stocks:sync": "pnpm --filter @darchive/api stocks:sync",
+    "test": "pnpm --filter @darchive/api test",
+    "typecheck": "pnpm db:generate && pnpm --filter @darchive/api typecheck && pnpm --filter @darchive/web typecheck",
     "wedding:images": "node scripts/process-wedding-images.mjs"
   },
   "devDependencies": {

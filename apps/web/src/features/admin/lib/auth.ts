@@ -12,8 +12,13 @@ export async function isAdminAuthenticated() {
   return verifyAdminSessionCookieValue(sessionCookie);
 }
 
-export async function requireAdmin() {
+/** Only same-site paths are honored, so a crafted `next` can't bounce users off-site. */
+export function toSafeNextPath(value: unknown) {
+  return typeof value === "string" && /^\/(?![/\\])/.test(value) ? value : undefined;
+}
+
+export async function requireAdmin(nextPath?: string) {
   if (!(await isAdminAuthenticated())) {
-    redirect("/admin/login");
+    redirect(nextPath ? `/admin/login?${new URLSearchParams({ next: nextPath })}` : "/admin/login");
   }
 }

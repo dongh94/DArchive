@@ -7,17 +7,20 @@ import {
   createAdminSessionCookieValue,
   getAdminSessionMaxAge,
 } from "@darchive/api";
+import { toSafeNextPath } from "./auth";
 
 export async function loginAdmin(formData: FormData) {
   const password = formData.get("password");
   const adminPassword = process.env.ADMIN_PASSWORD;
+  const nextPath = toSafeNextPath(formData.get("next"));
+  const loginErrorUrl = (error: string) => `/admin/login?${new URLSearchParams({ error, ...(nextPath ? { next: nextPath } : {}) })}`;
 
   if (!adminPassword) {
-    redirect("/admin/login?error=config");
+    redirect(loginErrorUrl("config"));
   }
 
   if (typeof password !== "string" || password !== adminPassword) {
-    redirect("/admin/login?error=invalid");
+    redirect(loginErrorUrl("invalid"));
   }
 
   const cookieStore = await cookies();
@@ -29,7 +32,7 @@ export async function loginAdmin(formData: FormData) {
     secure: process.env.NODE_ENV === "production",
   });
 
-  redirect("/admin");
+  redirect(nextPath ?? "/admin");
 }
 
 export async function logoutAdmin() {

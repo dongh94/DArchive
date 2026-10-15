@@ -7,7 +7,7 @@ const errorMessages = {
   invalid: "관리자 비밀번호가 올바르지 않습니다.",
 } satisfies Record<string, string>;
 
-export function AdminLoginPage({ error }: { error?: string }) {
+export function AdminLoginPage({ error, nextPath }: { error?: string; nextPath?: string }) {
   const errorMessage = error === "config" || error === "invalid" ? errorMessages[error] : undefined;
 
   return (
@@ -26,6 +26,7 @@ export function AdminLoginPage({ error }: { error?: string }) {
           <p className="mt-3 text-sm leading-6 text-foreground/55">DArchive 운영 화면에 접근하려면 관리자 비밀번호를 입력하세요.</p>
 
           <form action={loginAdmin} className="mt-8 grid gap-4">
+            {nextPath ? <input type="hidden" name="next" value={nextPath} /> : null}
             <label className="grid gap-2 text-sm font-semibold">
               Password
               <input

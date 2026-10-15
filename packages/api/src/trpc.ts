@@ -1,4 +1,4 @@
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import {
   ADMIN_SESSION_COOKIE_NAME,
@@ -42,3 +42,11 @@ const t = initTRPC.context<Context>().create({
 export const router = t.router;
 export const publicProcedure = t.procedure;
 export const createCallerFactory = t.createCallerFactory;
+
+export const adminProcedure = publicProcedure.use(({ ctx, next }) => {
+  if (!ctx.isAdmin) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Admin session is required" });
+  }
+
+  return next({ ctx });
+});

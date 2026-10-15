@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Runs `pnpm stocks:sync` on weekdays at 16:10 (after the KRX close) on this Mac,
+  whose public IP is allow-listed in the Toss Open API settings.
+
+  Install:
+    1. Replace __REPO_DIR__ below with the absolute repo path.
+    2. cp scripts/launchd/com.darchive.stocks-sync.plist ~/Library/LaunchAgents/
+    3. launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.darchive.stocks-sync.plist
+  Run now:   launchctl kickstart gui/$(id -u)/com.darchive.stocks-sync
+  Uninstall: launchctl bootout gui/$(id -u)/com.darchive.stocks-sync
+  Logs:      /tmp/darchive-stocks-sync.log
+
+  launchd runs a missed schedule once when the Mac wakes, so a sleeping Mac catches up later.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.darchive.stocks-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd "__REPO_DIR__" &amp;&amp; pnpm stocks:sync</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>10</integer></dict>
+    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>10</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>10</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>10</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>10</integer></dict>
+  </array>
+  <key>StandardOutPath</key>
+  <string>/tmp/darchive-stocks-sync.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/darchive-stocks-sync.log</string>
+</dict>
+</plist>
